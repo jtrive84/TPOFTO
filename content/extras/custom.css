@@ -1,0 +1,95 @@
+@import url('https://fonts.googleapis.com/css?family=Droid+Sans');
+@import url('https://fonts.googleapis.com/css?family=Droid+Sans|Work+Sans');
+@import url('https://fonts.googleapis.com/css?family=Roboto+Mono');
+
+/*
+h2 {background-color: #00ff00;border-style: solid; border-width: 2px; border-color: #395c82;}
+p {background-color: #f5f5f5;}
+*/
+
+body{
+    font-family:"Helvetica Neue","Open Sans",Helvetica,Arial,sans-serif;
+	font-size:13px;
+	line-height:1.35;
+	color:#202020;
+	/*background-color:#f8f8f2;*/
+	max-width:1225px;
+	/*text-align: justify;*/
+	border-color:#332f2f;
+	border-radius:1px;
+	background: url("../images/Background/lil_fiber.png");
+}
+
+
+/* This represents the actual code blocks. */
+kbd, pre, samp {
+    font-size:95%; 
+	font-family:monospace,"Roboto Mono","Droid Sans Mono";
+	line-height:1.25;
+	max-width:1225px;
+	border-color:#383838;
+	border-radius:1px;
+	/*background-color:#FBF7F8;*/
+	/*color:#c7254e;*/
+	/*background-color:#f9f2f4;*/
+}
+
+
+/* This represents inline code references. */
+code {
+	font-family:"Roboto Mono","Droid Sans Mono",monospace;
+	font-size:95%;
+	/*background-color:transparent;*/
+}
+
+
+/* Ensures tables are surrounded with borders. */
+.table-bordered th, .table-bordered td { 
+	border: 1px solid #333!important 
+} 
+
+/* Controls the text for the banner. */
+#banner h1 {
+    color: #fff;
+    font-family: "HelveticaNeue-CondensedBold","Helvetica Neue CE 600 Condensed","Helvetica Neue LT Condensed","Helvetica Neue 600 Condensed","HelveticaNeue-BoldCondensed","Helvetica Neue BoldCondensed","Helvetica Neue",Helvetica,Arial,sans-serif;
+    font-size: 40px;
+    font-stretch: condensed;
+    font-weight: 700;
+    line-height: 0.9;
+    margin: 0;
+    text-transform: uppercase;
+}
+
+/* Controls the width of the banner enclosing box. */
+#banner .copy {
+    background: none repeat scroll 0 0 rgba(0, 0, 0, 0.7);
+    display: inline;
+    float: left;
+    max-width: 520px;
+    padding: 15px;
+    position: relative;
+    z-index: 0;
+}
+
+
+/* Format blockquotes */
+blockquote {
+    padding: 10.5px 21px;
+    margin: 0 0 21px;
+    font-size: 98%;
+    border-left: 5px solid #dddddd;
+}
+
+/***** formatting hyperlinks **************************************************/
+
+/* unvisited link */
+a:link {color:#3677A9;}
+
+/* visited link */
+a:visited {color: #B975B9;}
+
+/* mouse over link */
+a:hover {color:#3677A9; text-decoration: underline}
+
+/* selected link */
+a:active {color: #B975B9;}

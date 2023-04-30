@@ -1,0 +1,184 @@
+Title: Simple Example of RSA Encryption and Decryption                              
+Date: 2023-04-18                  
+Category: Python                      
+Tags: Python                   
+Authors: James D. Triveri                                  
+Summary: An illustrative example of RSA encryption and decryption using small primes 
+
+
+The RSA algorithm is named after Ron Rivest, Adi Shamir and Len Adleman, who invented the system in 1977. The RSA cryptosystem is the 
+most widely-used public key cryptography algorithm in the world. It can be used to encrypt a message without requiring the exchange of 
+a secret key. RSA exploits the fact that while multiplying large integers is trivial, determining the factors of large integers is much 
+more difficult. The original paper introducing the RSA cryptosystem is quite readable, and is available for downloaded 
+[here](https://people.csail.mit.edu/rivest/Rsapaper.pdf).
+
+In this post, we'll walk through each step of the RSA algorithm (key generation, key distribution, encryption and decryption) with an 
+illustrative example using small primes.    
+
+## RSA Algorithm
+  
+1. Generate two prime numbers $p,q$ then compute their product $n$.              
+2. Compute *Euler's totient*: $\phi = (p - 1)(q - 1)$.           
+3. Select a number $e$ that is relatively coprime with $(p -1)$ and $(q - 1)$.             
+4. Compute $d$ such that $ed \equiv 1 (mod \phi)$.        
+ 
+
+Once we have $n$, $d$ and $e$, we specify our public key as $(n, e)$ and private key as $(n, d)$.
+
+For a plain text message $m$, we can generate the corresponding ciphertext $c$ by computing:
+
+$$
+c = m^{e} \bmod n
+$$
+
+Similarly, we can convert the ciphertext $c$ back to plaintext $m$ using:   
+
+$$
+m = c^{d} \bmod n
+$$
+
+## Demonstration
+
+In order to use the RSA cryptosystem, it is necessary to use an encoding to 
+represent letters as numbers. A well know mapping of english letters to numeric 
+values is the [ASCII character encoding](https://en.wikipedia.org/wiki/ASCII).
+Using the ASCII encoding, **HELP!** would be encoded as 
+**72 - 69 - 76 - 80 - 33**.     
+
+We start by generating two primes then compute their product. In practice, the 
+modulus can be 1024-bits or greater. A 1024-bit modulus corresponds to a number 
+with over 300 decimal digits[ref]https://www.di-mgt.com.au/rsa_alg.html[/ref].
+
+As stated above, we select $p$ and $q$ then compute $n$:
+
+$$
+\begin{align}
+p&=19\\
+q&=29\\
+n&=pq = 551
+\end{align}
+$$
+
+Then we compute Euler's totient:   
+
+$$
+\phi = (p -1)(q-1) = 18 \times 28 = 504
+$$
+
+Next we need to find a number $e$, where $1 < e < \phi$ that is relatively 
+coprime with $(p - 1)$ and $(q - 1)$. In other words, find $e$ such that the 
+greatest common divisor of $\phi$ and $e$ is 1. For this example, we set $e=17$.  
+
+Finally, we need to find $d$ such that $ed \equiv 1 (mod \phi)$. This can be 
+accomplished using the following function implemented in Python:    
+
+```python
+import itertools
+
+def get_d(e, phi):
+    """
+    Compute d such that e * d = 1 % phi.
+    """
+    for i in itertools.count(start=int(phi / e)):
+        v = (e * i) % phi
+        if v==1: break
+    return(i)
+```
+
+Running `get_d` yields $89$. To summarize:
+
+$$
+\begin{align}
+p&=19\\
+q&=29\\
+n&=551\\
+\phi&=504\\
+e&=17\\
+d&=89
+\end{align}
+$$
+
+Given these values, our public key is $(551, 17)$ and our private key is 
+$(551, 89)$.   
+
+Given our numerically-encoded plaintext **HELP!** as $72 - 69 - 76 - 80 - 33$, 
+we generate the ciphertext. Recall that in order to convert plaintext to 
+ciphertext, we use $c = m^{e} \bmod n$. Note that Python's `pow` function takes 
+an optional 3rd parameter representing the modulus. For example, calling 
+`pow(a, b, c)` calculates $a^{b}\bmod c$:
+
+```python
+>>> p, q, n, phi, e, d = 19, 29 551, 504, 17, 89
+>>> m = [72, 69, 76, 80, 33]
+>>> c = [[pow(i, e, n) for i in m]
+>>> print(c)
+[185, 293, 171, 5, 528]
+```
+
+As expected, when we print `c`, the numbers are completely different than the 
+plaintext encoding.    
+
+This message can only be decoded by the entity in possession of the private 
+key. Let's imagine that we received a message from a counter party who 
+generated the ciphertext using the public key. We need to decrypt the message 
+using our private key. To do so, we calculate $m = c^{d} \bmod n$. In Python, 
+we can obtain the ASCII character associated with an integer by calling the 
+$chr$ function. Picking up where we left off in the previous example, we first 
+convert the ciphertext to plaintext, then the plaintext array of integers to a 
+string: 
+
+```python
+>>> m_ = [pow(i, d, n) for i in c]
+>>> print(m_)
+[72, 69, 76, 80, 33]
+>>> "".join(chr(i) for i in m_)
+HELP!
+```
+
+
+## Breaking RSA with Brute-Force
+
+Recently I came across a [question](https://crypto.stackexchange.com/questions/3043/how-much-computing-resource-is-required-to-brute-force-rsa) posted to crypto.statsexchange inquiring about the computing resources that would be required to brute-force 
+enumerate every possible RSA {1024, 2048,4096}-bit key-pair. Here were two responses I found particularly helpful. The first response:
+
+>Even if you had infinite computing power you would not have the space to 
+>store all these public/private key pairs (I'll spare you the semimathematical 
+>posts comparing the space required to the number of protons in the universe). 
+>Many people have trouble perceiving just how big a number $2^{2048}$ is, it's 
+>a common error. A much more practical approach instead is to harvest as many 
+>real-life public keys as possible, and trying to find common factors between 
+>them. It actually works because of poor key generation practices.    
+
+The second response:
+
+> It's not possible. The number of primes smaller than x is approximately $\frac{x}{ln(x)}$.
+>Therefore the number of 512-bit primes (the length you need for 1024 bit modulus) 
+>is approximately:
+>
+>$$
+>\frac{2^{513}}{\ln 2^{513}}-\frac{2^{512}}{\ln 2^{512}} \approx 2.76×10^{151}
+>$$
+>
+>The number of RSA moduli (i.e. pair of two distinct primes) is therefore:
+>
+>$$
+>\frac{(2.76×10^{151})^2}{2}-2.76×10^{151}=1.88×10^{302}
+>$$
+>
+>Now consider that the observable universe contains about $10^{80}$ atoms.
+>Assume that you could use each of those atoms as a CPU, and each of those CPUs 
+>could enumerate one modulus per millisecond. To enumerate all 1024 bit RSA 
+>moduli you would need:
+>
+>$$
+>\begin{eqnarray*}
+>1.88×10^{302}ms / 10^{80}&=&1.88×10^{222}ms\\
+>&=&1.88×10^{219}s\\
+>&=&5.22×10^{215}h\\
+>&=&5.95×10^{211} \text{years}
+>\end{eqnarray*}
+>$$
+>
+>Just as a comparison: the universe is about $13.75×10^{9}$ years old. It's not 
+>a question of resources, *it's simply not possible.*
+

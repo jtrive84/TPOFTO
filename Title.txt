@@ -1,0 +1,6 @@
+Title: 
+Date: 2023-04-23           
+Category: Statistical Modeling                    
+Tags: Statistical Modeling, Python              
+Authors: James D. Triveri                      
+Summary:       
