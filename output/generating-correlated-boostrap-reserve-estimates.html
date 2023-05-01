@@ -1,0 +1,620 @@
+<!DOCTYPE html>
+<html lang="en" prefix="og: http://ogp.me/ns# fb: https://www.facebook.com/2008/fbml">
+<head>
+    <title>Generating Correlated Boostrap Reserve Estimates - The Pleasure of Finding Things Out</title>
+    <!-- Using the latest rendering mode for IE -->
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+
+
+<link rel="canonical" href="./generating-correlated-boostrap-reserve-estimates.html">
+
+        <meta name="author" content="James D. Triveri" />
+        <meta name="keywords" content="Statistical Modeling,R" />
+        <meta name="description" content="Generating correlated boostrap reserve estimates with R" />
+
+        <meta property="og:site_name" content="The Pleasure of Finding Things Out" />
+        <meta property="og:type" content="article"/>
+        <meta property="og:title" content="Generating Correlated Boostrap Reserve Estimates"/>
+        <meta property="og:url" content="./generating-correlated-boostrap-reserve-estimates.html"/>
+        <meta property="og:description" content="Generating correlated boostrap reserve estimates with R"/>
+        <meta property="article:published_time" content="2023-04-23" />
+            <meta property="article:section" content="Statistical Modeling, R" />
+            <meta property="article:tag" content="Statistical Modeling" />
+            <meta property="article:tag" content="R" />
+            <meta property="article:author" content="James D. Triveri" />
+
+
+
+    <!-- Bootstrap -->
+        <link rel="stylesheet" href="./theme/css/bootstrap.Yeti.min.css" type="text/css"/>
+    <link href="./theme/css/font-awesome.min.css" rel="stylesheet">
+
+    <link href="./theme/css/pygments/default.css" rel="stylesheet">
+        <link href="./theme/css/typogrify.css" rel="stylesheet">
+    <link rel="stylesheet" href="./theme/css/style.css" type="text/css"/>
+        <link href="./static/css/custom.css" rel="stylesheet">
+
+
+
+
+</head>
+<body>
+
+<div class="navbar navbar-inverse navbar-fixed-top" role="navigation">
+    <div class="container-fluid">
+        <div class="navbar-header">
+            <button type="button" class="navbar-toggle" data-toggle="collapse" data-target=".navbar-ex1-collapse">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            <a href="./" class="navbar-brand">
+The Pleasure of Finding Things Out            </a>
+        </div>
+        <div class="collapse navbar-collapse navbar-ex1-collapse">
+            <ul class="nav navbar-nav">
+                         <li><a href="./pages/about-me.html">
+                             About&nbsp;Me
+                          </a></li>
+                        <li >
+                            <a href="./category/machine-learning.html">Machine learning</a>
+                        </li>
+                        <li >
+                            <a href="./category/python.html">Python</a>
+                        </li>
+                        <li >
+                            <a href="./category/r.html">R</a>
+                        </li>
+                        <li >
+                            <a href="./category/statistical-modeling.html">Statistical modeling</a>
+                        </li>
+                        <li class="active">
+                            <a href="./category/statistical-modeling-r.html">Statistical modeling, r</a>
+                        </li>
+            </ul>
+            <ul class="nav navbar-nav navbar-right">
+            </ul>
+        </div>
+        <!-- /.navbar-collapse -->
+    </div>
+</div> <!-- /.navbar -->
+
+<!-- Banner -->
+<!-- End Banner -->
+
+<!-- Content Container -->
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-sm-9">
+    <section id="content">
+        <article>
+            <header class="page-header">
+                <h1>
+                    <a href="./generating-correlated-boostrap-reserve-estimates.html"
+                       rel="bookmark"
+                       title="Permalink to Generating Correlated Boostrap Reserve Estimates">
+                        Generating Correlated Boostrap Reserve&nbsp;Estimates
+                    </a>
+                </h1>
+            </header>
+            <div class="entry-content">
+                <div class="panel">
+                    <div class="panel-body">
+<footer class="post-info">
+    <span class="label label-default">Date</span>
+    <span class="published">
+        <i class="fa fa-calendar"></i><time datetime="2023-04-23T00:00:00-05:00"> 2023-04-23</time>
+    </span>
+
+
+
+
+
+<span class="label label-default">Tags</span>
+	<a href="./tag/statistical-modeling.html">Statistical Modeling</a>
+        /
+	<a href="./tag/r.html">R</a>
+    
+</footer><!-- /.post-info -->                    </div>
+                </div>
+                <h3>Prerequisites</h3>
+<p>If you don&#8217;t have them already, install the data.table, foreach, ggplot2 and ChainLadder libraries the conventional&nbsp;way: </p>
+<div class="highlight"><pre><span></span><code><span class="o">&gt;</span><span class="w"> </span><span class="nf">install.packages</span><span class="p">(</span><span class="nf">c</span><span class="p">(</span><span class="s">&quot;data.table&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;foreach&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;ggplot2&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;ChainLadder&quot;</span><span class="p">))</span>
+</code></pre></div>
+
+<p>The <a href="https://www.casact.org/publications-research/research/research-resources/loss-reserving-data-pulled-naic-schedule-p"><span class="caps">CAS</span> Loss Reserves Database</a> 
+represents a set of triangles intended for use in claims reserving studies. The data includes major personal and commercial lines of business from <span class="caps">U.S.</span> property casualty insurers. The claims data comes from Schedule P - Analysis of Losses and Loss Expenses in the National Association of Insurance Commissioners (<span class="caps">NAIC</span>) database. <span class="caps">NAIC</span> Schedule P contains information on claims for major personal and commercial lines for all P&amp;C insurers that write business in <span class="caps">US</span>.
+The six lines included in this database are: (1) private passenger auto liability/medical; (2) commercial auto/truck liability/medical; (3) workers&#8217; compensation; (4) medical malpractice - claims made; (5) other liability - occurrence; 
+(6) product liability -&nbsp;occurrence.</p>
+<p>In this article, a technique to estimate total reserves accounting for correlation between lines of business is introduced. 
+We focus on workers compensation, commercial auto, product liability and other liability data sourced from the <span class="caps">CAS</span> Loss 
+Reserves Database. We&#8217;ll demonstrate how to account for correlation between lines, and show how changes to the correlation 
+assumption effects the total reserve&nbsp;estimate. </p>
+<p>The data can be downloaded from the <span class="caps">CAS</span> website directly using data.table&#8217;s <code>fread</code>. We perform some preprocessing to 
+normalize column names and assign like columns the same name in each&nbsp;table. </p>
+<div class="highlight"><pre><span></span><code><span class="nf">library</span><span class="p">(</span><span class="s">&quot;data.table&quot;</span><span class="p">)</span>
+<span class="nf">library</span><span class="p">(</span><span class="s">&quot;foreach&quot;</span><span class="p">)</span>
+<span class="nf">library</span><span class="p">(</span><span class="s">&quot;ChainLadder&quot;</span><span class="p">)</span>
+<span class="nf">library</span><span class="p">(</span><span class="s">&quot;ggplot2&quot;</span><span class="p">)</span>
+
+<span class="n">DF1</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">fread</span><span class="p">(</span><span class="s">&quot;https://www.casact.org/sites/default/files/2021-04/wkcomp_pos.csv&quot;</span><span class="p">)</span><span class="w">  </span><span class="c1"># workers compensation</span>
+<span class="n">DF2</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">fread</span><span class="p">(</span><span class="s">&quot;https://www.casact.org/sites/default/files/2021-04/comauto_pos.csv&quot;</span><span class="p">)</span><span class="w">  </span><span class="c1"># commercial auto</span>
+<span class="n">DF3</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">fread</span><span class="p">(</span><span class="s">&quot;https://www.casact.org/sites/default/files/2021-04/prodliab_pos.csv&quot;</span><span class="p">)</span><span class="w"> </span><span class="c1"># product liability</span>
+<span class="n">DF4</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">fread</span><span class="p">(</span><span class="s">&quot;https://www.casact.org/sites/default/files/2021-04/othliab_pos.csv&quot;</span><span class="p">)</span><span class="w">  </span><span class="c1"># other liability</span>
+
+<span class="nf">names</span><span class="p">(</span><span class="n">DF1</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">tolower</span><span class="p">(</span><span class="nf">names</span><span class="p">(</span><span class="n">DF1</span><span class="p">))</span>
+<span class="nf">names</span><span class="p">(</span><span class="n">DF2</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">tolower</span><span class="p">(</span><span class="nf">names</span><span class="p">(</span><span class="n">DF2</span><span class="p">))</span>
+<span class="nf">names</span><span class="p">(</span><span class="n">DF3</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">tolower</span><span class="p">(</span><span class="nf">names</span><span class="p">(</span><span class="n">DF3</span><span class="p">))</span>
+<span class="nf">names</span><span class="p">(</span><span class="n">DF4</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">tolower</span><span class="p">(</span><span class="nf">names</span><span class="p">(</span><span class="n">DF4</span><span class="p">))</span>
+
+<span class="nf">setnames</span><span class="p">(</span>
+<span class="w">    </span><span class="n">DF1</span><span class="p">,</span><span class="w"> </span><span class="nf">c</span><span class="p">(</span><span class="s">&quot;incurloss_d&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;bulkloss_d&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;accidentyear&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;developmentlag&quot;</span><span class="p">),</span>
+<span class="w">    </span><span class="nf">c</span><span class="p">(</span><span class="s">&quot;incurloss&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;bulkloss&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;origin&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;dev&quot;</span><span class="p">)</span>
+<span class="w">    </span><span class="p">)</span>
+<span class="nf">setnames</span><span class="p">(</span>
+<span class="w">    </span><span class="n">DF2</span><span class="p">,</span><span class="w"> </span><span class="nf">c</span><span class="p">(</span><span class="s">&quot;incurloss_c&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;bulkloss_c&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;accidentyear&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;developmentlag&quot;</span><span class="p">),</span>
+<span class="w">    </span><span class="nf">c</span><span class="p">(</span><span class="s">&quot;incurloss&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;bulkloss&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;origin&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;dev&quot;</span><span class="p">)</span>
+<span class="w">    </span><span class="p">)</span>
+<span class="nf">setnames</span><span class="p">(</span>
+<span class="w">    </span><span class="n">DF3</span><span class="p">,</span><span class="w"> </span><span class="nf">c</span><span class="p">(</span><span class="s">&quot;incurloss_r1&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;bulkloss_r1&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;accidentyear&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;developmentlag&quot;</span><span class="p">),</span>
+<span class="w">    </span><span class="nf">c</span><span class="p">(</span><span class="s">&quot;incurloss&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;bulkloss&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;origin&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;dev&quot;</span><span class="p">)</span>
+<span class="w">    </span><span class="p">)</span>
+<span class="nf">setnames</span><span class="p">(</span>
+<span class="w">    </span><span class="n">DF4</span><span class="p">,</span><span class="w"> </span><span class="nf">c</span><span class="p">(</span><span class="s">&quot;incurloss_h1&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;bulkloss_h1&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;accidentyear&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;developmentlag&quot;</span><span class="p">),</span>
+<span class="w">    </span><span class="nf">c</span><span class="p">(</span><span class="s">&quot;incurloss&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;bulkloss&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;origin&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;dev&quot;</span><span class="p">)</span>
+<span class="w">    </span><span class="p">)</span>
+<span class="n">dfList</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">list</span><span class="p">(</span><span class="n">wkcomp</span><span class="o">=</span><span class="n">DF1</span><span class="p">,</span><span class="w"> </span><span class="n">comauto</span><span class="o">=</span><span class="n">DF2</span><span class="p">,</span><span class="w"> </span><span class="n">prodliab</span><span class="o">=</span><span class="n">DF3</span><span class="p">,</span><span class="w"> </span><span class="n">othliab</span><span class="o">=</span><span class="n">DF4</span><span class="p">)</span><span class="w"> </span>
+</code></pre></div>
+
+<p>Each dataset contains loss data indexed by grcode, which is a company id. We need to find a company with losses in 
+<span class="caps">DF1</span>, <span class="caps">DF2</span>, <span class="caps">DF3</span> and <span class="caps">DF4</span>. This can be accomplished with the&nbsp;following:</p>
+<div class="highlight"><pre><span></span><code><span class="n">grcodes</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">Reduce</span><span class="p">(</span>
+<span class="w">    </span><span class="nf">function</span><span class="p">(</span><span class="n">v1</span><span class="p">,</span><span class="w"> </span><span class="n">v2</span><span class="p">)</span><span class="w"> </span><span class="nf">intersect</span><span class="p">(</span><span class="n">v1</span><span class="p">,</span><span class="w"> </span><span class="n">v2</span><span class="p">),</span>
+<span class="w">    </span><span class="nf">lapply</span><span class="p">(</span><span class="n">dfList</span><span class="p">,</span><span class="w"> </span><span class="nf">function</span><span class="p">(</span><span class="n">DF</span><span class="p">)</span><span class="w"> </span><span class="nf">unique</span><span class="p">(</span><span class="n">DF</span><span class="p">[,</span><span class="n">grcode</span><span class="p">]))</span>
+<span class="w">    </span><span class="p">)</span>
+<span class="n">grnamesDF</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">unique</span><span class="p">(</span>
+<span class="w">    </span><span class="n">DF1</span><span class="p">[</span><span class="n">grcode</span><span class="w"> </span><span class="o">%in%</span><span class="w"> </span><span class="n">grcodes</span><span class="p">,</span><span class="w"> </span><span class="nf">.</span><span class="p">(</span><span class="n">grcode</span><span class="p">,</span><span class="w"> </span><span class="n">grname</span><span class="p">)]</span>
+<span class="w">    </span><span class="p">)</span>
+<span class="nf">setorderv</span><span class="p">(</span><span class="n">grnamesDF</span><span class="p">,</span><span class="w"> </span><span class="nf">c</span><span class="p">(</span><span class="s">&quot;grcode&quot;</span><span class="p">),</span><span class="w"> </span><span class="nf">c</span><span class="p">(</span><span class="m">1</span><span class="p">))</span>
+</code></pre></div>
+
+<p>Which&nbsp;yields:</p>
+<div class="highlight"><pre><span></span><code>    grcode                              grname
+ 1:    337                  California Cas Grp
+ 2:    715               West Bend Mut Ins Grp
+ 3:   1066                  Island Ins Cos Grp
+ 4:   1538              Farmers Automobile Grp
+ 5:   1767                  State Farm Mut Grp
+ 6:   2143   Farmers Alliance Mut &amp; Affiliates
+ 7:   5185                    Grinnell Mut Grp
+ 8:   7080        New Jersey Manufacturers Grp
+ 9:   9466                      Lumber Ins Cos
+10:  10048    Hyundai Marine &amp; Fire Ins Co Ltd
+11:  11126 Yasuda Fire &amp; Marine Ins Co Of Amer
+12:  13439                 Partners Mut Ins Co
+13:  13528              Brotherhood Mut Ins Co
+14:  13587                  Chicago Mut Ins Co
+15:  14044                Goodville Mut Cas Co
+16:  14257                      IMT Ins Co Mut
+17:  14370                  Lebanon Mut Ins Co
+18:  14508         Michigan Millers Mut Ins Co
+19:  15024                Preferred Mut Ins Co
+20:  18791                 Virginia Mut Ins Co
+21:  23663            National American Ins Co
+22:  26433                   Harco Natl Ins Co
+23:  28258             Continental Natl Ind Co
+24:  35408                  Sirius Amer Ins Co
+25:  38300    Samsung Fire &amp; Marine Ins Co Ltd
+26:  38733                   Alaska Nat Ins Co
+27:  44091 Dowa Fire &amp; Marine Ins Co Ltd Us Br
+    grcode                              grname
+</code></pre></div>
+
+<p>Let&#8217;s go with <strong>1767</strong>, which represents State Farm. In the next code block, we subset each data.table to only those 
+records with <code>grcode=="1767"</code>, then create runoff triangles for each line of&nbsp;business:</p>
+<div class="highlight"><pre><span></span><code><span class="n">GRCODE</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="m">1767</span><span class="w"> </span>
+<span class="n">grList</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">lapply</span><span class="p">(</span><span class="n">dfList</span><span class="p">,</span><span class="w"> </span><span class="nf">function</span><span class="p">(</span><span class="n">DF</span><span class="p">)</span><span class="w"> </span><span class="n">DF</span><span class="p">[</span><span class="n">grcode</span><span class="o">==</span><span class="n">GRCODE</span><span class="p">,])</span>
+
+<span class="n">triData</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">foreach</span><span class="p">(</span>
+<span class="w">    </span><span class="n">ii</span><span class="o">=</span><span class="m">1</span><span class="o">:</span><span class="nf">length</span><span class="p">(</span><span class="n">grList</span><span class="p">),</span><span class="w"> </span><span class="n">.inorder</span><span class="o">=</span><span class="kc">TRUE</span><span class="p">,</span><span class="w"> </span><span class="n">.errorhandling</span><span class="o">=</span><span class="s">&quot;stop&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="n">.final</span><span class="o">=</span><span class="nf">function</span><span class="p">(</span><span class="n">ll</span><span class="p">)</span><span class="w"> </span><span class="nf">setNames</span><span class="p">(</span><span class="n">ll</span><span class="p">,</span><span class="w"> </span><span class="nf">names</span><span class="p">(</span><span class="n">grList</span><span class="p">))</span>
+<span class="p">)</span><span class="w"> </span><span class="o">%do%</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="n">currLOB</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">names</span><span class="p">(</span><span class="n">grList</span><span class="p">)[[</span><span class="n">ii</span><span class="p">]]</span>
+<span class="w">    </span><span class="n">DFInit</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">grList</span><span class="p">[[</span><span class="n">ii</span><span class="p">]]</span>
+<span class="w">    </span><span class="n">DF</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">DFInit</span><span class="p">[</span><span class="n">dev</span><span class="o">&lt;=</span><span class="nf">max</span><span class="p">(</span><span class="n">origin</span><span class="p">)</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">origin</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="m">1</span><span class="p">,]</span>
+<span class="w">    </span><span class="n">DF</span><span class="p">[,</span><span class="n">value</span><span class="o">:=</span><span class="n">incurloss</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">bulkloss</span><span class="p">]</span>
+<span class="w">    </span><span class="nf">as.triangle</span><span class="p">(</span><span class="n">DF</span><span class="p">[,</span><span class="nf">.</span><span class="p">(</span><span class="n">origin</span><span class="p">,</span><span class="w"> </span><span class="n">dev</span><span class="p">,</span><span class="w"> </span><span class="n">value</span><span class="p">)])</span>
+<span class="p">}</span>
+</code></pre></div>
+
+<p>Triangles for each lob are presented&nbsp;below:</p>
+<div class="highlight"><pre><span></span><code><span class="o">&gt;</span><span class="w"> </span><span class="n">triData</span>
+<span class="o">$</span><span class="n">wkcomp</span>
+<span class="w">      </span><span class="n">dev</span>
+<span class="n">origin</span><span class="w">      </span><span class="m">1</span><span class="w">      </span><span class="m">2</span><span class="w">      </span><span class="m">3</span><span class="w">      </span><span class="m">4</span><span class="w">      </span><span class="m">5</span><span class="w">      </span><span class="m">6</span><span class="w">      </span><span class="m">7</span><span class="w">      </span><span class="m">8</span><span class="w">      </span><span class="m">9</span><span class="w">     </span><span class="m">10</span>
+<span class="w">  </span><span class="m">1988</span><span class="w">  </span><span class="m">50758</span><span class="w">  </span><span class="m">94150</span><span class="w"> </span><span class="m">106804</span><span class="w"> </span><span class="m">113733</span><span class="w"> </span><span class="m">120148</span><span class="w"> </span><span class="m">123986</span><span class="w"> </span><span class="m">127650</span><span class="w"> </span><span class="m">128622</span><span class="w"> </span><span class="m">129791</span><span class="w"> </span><span class="m">130625</span>
+<span class="w">  </span><span class="m">1989</span><span class="w">  </span><span class="m">65423</span><span class="w"> </span><span class="m">110204</span><span class="w"> </span><span class="m">131509</span><span class="w"> </span><span class="m">140383</span><span class="w"> </span><span class="m">147011</span><span class="w"> </span><span class="m">150266</span><span class="w"> </span><span class="m">152264</span><span class="w"> </span><span class="m">155017</span><span class="w"> </span><span class="m">155979</span><span class="w">     </span><span class="kc">NA</span>
+<span class="w">  </span><span class="m">1990</span><span class="w">  </span><span class="m">68719</span><span class="w"> </span><span class="m">141501</span><span class="w"> </span><span class="m">165694</span><span class="w"> </span><span class="m">181789</span><span class="w"> </span><span class="m">189149</span><span class="w"> </span><span class="m">194315</span><span class="w"> </span><span class="m">196897</span><span class="w"> </span><span class="m">201780</span><span class="w">     </span><span class="kc">NA</span><span class="w">     </span><span class="kc">NA</span>
+<span class="w">  </span><span class="m">1991</span><span class="w">  </span><span class="m">82409</span><span class="w"> </span><span class="m">165813</span><span class="w"> </span><span class="m">199016</span><span class="w"> </span><span class="m">213698</span><span class="w"> </span><span class="m">222994</span><span class="w"> </span><span class="m">229774</span><span class="w"> </span><span class="m">232413</span><span class="w">     </span><span class="kc">NA</span><span class="w">     </span><span class="kc">NA</span><span class="w">     </span><span class="kc">NA</span>
+<span class="w">  </span><span class="m">1992</span><span class="w">  </span><span class="m">97138</span><span class="w"> </span><span class="m">183451</span><span class="w"> </span><span class="m">208163</span><span class="w"> </span><span class="m">220275</span><span class="w"> </span><span class="m">227404</span><span class="w"> </span><span class="m">234320</span><span class="w">     </span><span class="kc">NA</span><span class="w">     </span><span class="kc">NA</span><span class="w">     </span><span class="kc">NA</span><span class="w">     </span><span class="kc">NA</span>
+<span class="w">  </span><span class="m">1993</span><span class="w"> </span><span class="m">106508</span><span class="w"> </span><span class="m">167688</span><span class="w"> </span><span class="m">195533</span><span class="w"> </span><span class="m">212777</span><span class="w"> </span><span class="m">220063</span><span class="w">     </span><span class="kc">NA</span><span class="w">     </span><span class="kc">NA</span><span class="w">     </span><span class="kc">NA</span><span class="w">     </span><span class="kc">NA</span><span class="w">     </span><span class="kc">NA</span>
+<span class="w">  </span><span class="m">1994</span><span class="w">  </span><span class="m">93736</span><span class="w"> </span><span class="m">141067</span><span class="w"> </span><span class="m">160848</span><span class="w"> </span><span class="m">173457</span><span class="w">     </span><span class="kc">NA</span><span class="w">     </span><span class="kc">NA</span><span class="w">     </span><span class="kc">NA</span><span class="w">     </span><span class="kc">NA</span><span class="w">     </span><span class="kc">NA</span><span class="w">     </span><span class="kc">NA</span>
+<span class="w">  </span><span class="m">1995</span><span class="w">  </span><span class="m">81309</span><span class="w"> </span><span class="m">116739</span><span class="w"> </span><span class="m">135447</span><span class="w">     </span><span class="kc">NA</span><span class="w">     </span><span class="kc">NA</span><span class="w">     </span><span class="kc">NA</span><span class="w">     </span><span class="kc">NA</span><span class="w">     </span><span class="kc">NA</span><span class="w">     </span><span class="kc">NA</span><span class="w">     </span><span class="kc">NA</span>
+<span class="w">  </span><span class="m">1996</span><span class="w">  </span><span class="m">66073</span><span class="w">  </span><span class="m">92365</span><span class="w">     </span><span class="kc">NA</span><span class="w">     </span><span class="kc">NA</span><span class="w">     </span><span class="kc">NA</span><span class="w">     </span><span class="kc">NA</span><span class="w">     </span><span class="kc">NA</span><span class="w">     </span><span class="kc">NA</span><span class="w">     </span><span class="kc">NA</span><span class="w">     </span><span class="kc">NA</span>
+<span class="w">  </span><span class="m">1997</span><span class="w">  </span><span class="m">56003</span><span class="w">     </span><span class="kc">NA</span><span class="w">     </span><span class="kc">NA</span><span class="w">     </span><span class="kc">NA</span><span class="w">     </span><span class="kc">NA</span><span class="w">     </span><span class="kc">NA</span><span class="w">     </span><span class="kc">NA</span><span class="w">     </span><span class="kc">NA</span><span class="w">     </span><span class="kc">NA</span><span class="w">     </span><span class="kc">NA</span>
+
+<span class="o">$</span><span class="n">prodliab</span>
+<span class="w">      </span><span class="n">dev</span>
+<span class="n">origin</span><span class="w">   </span><span class="m">1</span><span class="w">   </span><span class="m">2</span><span class="w">   </span><span class="m">3</span><span class="w">    </span><span class="m">4</span><span class="w">    </span><span class="m">5</span><span class="w">    </span><span class="m">6</span><span class="w">    </span><span class="m">7</span><span class="w">    </span><span class="m">8</span><span class="w">    </span><span class="m">9</span><span class="w">   </span><span class="m">10</span>
+<span class="w">  </span><span class="m">1988</span><span class="w"> </span><span class="m">696</span><span class="w"> </span><span class="m">737</span><span class="w"> </span><span class="m">881</span><span class="w"> </span><span class="m">1002</span><span class="w"> </span><span class="m">1379</span><span class="w"> </span><span class="m">1451</span><span class="w"> </span><span class="m">1741</span><span class="w"> </span><span class="m">1814</span><span class="w"> </span><span class="m">1818</span><span class="w"> </span><span class="m">1850</span>
+<span class="w">  </span><span class="m">1989</span><span class="w"> </span><span class="m">428</span><span class="w"> </span><span class="m">351</span><span class="w"> </span><span class="m">617</span><span class="w">  </span><span class="m">718</span><span class="w">  </span><span class="m">761</span><span class="w">  </span><span class="m">788</span><span class="w">  </span><span class="m">797</span><span class="w">  </span><span class="m">802</span><span class="w">  </span><span class="m">804</span><span class="w">   </span><span class="kc">NA</span>
+<span class="w">  </span><span class="m">1990</span><span class="w">  </span><span class="m">57</span><span class="w">  </span><span class="m">77</span><span class="w">  </span><span class="m">92</span><span class="w">  </span><span class="m">135</span><span class="w">  </span><span class="m">197</span><span class="w">  </span><span class="m">235</span><span class="w">  </span><span class="m">250</span><span class="w">  </span><span class="m">263</span><span class="w">   </span><span class="kc">NA</span><span class="w">   </span><span class="kc">NA</span>
+<span class="w">  </span><span class="m">1991</span><span class="w">  </span><span class="m">23</span><span class="w"> </span><span class="m">121</span><span class="w"> </span><span class="m">140</span><span class="w">  </span><span class="m">141</span><span class="w">  </span><span class="m">172</span><span class="w">  </span><span class="m">189</span><span class="w">  </span><span class="m">190</span><span class="w">   </span><span class="kc">NA</span><span class="w">   </span><span class="kc">NA</span><span class="w">   </span><span class="kc">NA</span>
+<span class="w">  </span><span class="m">1992</span><span class="w">  </span><span class="m">48</span><span class="w"> </span><span class="m">109</span><span class="w"> </span><span class="m">101</span><span class="w">  </span><span class="m">107</span><span class="w">  </span><span class="m">131</span><span class="w">  </span><span class="m">130</span><span class="w">   </span><span class="kc">NA</span><span class="w">   </span><span class="kc">NA</span><span class="w">   </span><span class="kc">NA</span><span class="w">   </span><span class="kc">NA</span>
+<span class="w">  </span><span class="m">1993</span><span class="w"> </span><span class="m">119</span><span class="w"> </span><span class="m">133</span><span class="w"> </span><span class="m">150</span><span class="w">  </span><span class="m">211</span><span class="w">  </span><span class="m">278</span><span class="w">   </span><span class="kc">NA</span><span class="w">   </span><span class="kc">NA</span><span class="w">   </span><span class="kc">NA</span><span class="w">   </span><span class="kc">NA</span><span class="w">   </span><span class="kc">NA</span>
+<span class="w">  </span><span class="m">1994</span><span class="w">  </span><span class="m">21</span><span class="w">  </span><span class="m">60</span><span class="w">  </span><span class="m">59</span><span class="w">  </span><span class="m">100</span><span class="w">   </span><span class="kc">NA</span><span class="w">   </span><span class="kc">NA</span><span class="w">   </span><span class="kc">NA</span><span class="w">   </span><span class="kc">NA</span><span class="w">   </span><span class="kc">NA</span><span class="w">   </span><span class="kc">NA</span>
+<span class="w">  </span><span class="m">1995</span><span class="w">  </span><span class="m">57</span><span class="w">  </span><span class="m">53</span><span class="w">  </span><span class="m">54</span><span class="w">   </span><span class="kc">NA</span><span class="w">   </span><span class="kc">NA</span><span class="w">   </span><span class="kc">NA</span><span class="w">   </span><span class="kc">NA</span><span class="w">   </span><span class="kc">NA</span><span class="w">   </span><span class="kc">NA</span><span class="w">   </span><span class="kc">NA</span>
+<span class="w">  </span><span class="m">1996</span><span class="w">  </span><span class="m">10</span><span class="w">  </span><span class="m">11</span><span class="w">  </span><span class="kc">NA</span><span class="w">   </span><span class="kc">NA</span><span class="w">   </span><span class="kc">NA</span><span class="w">   </span><span class="kc">NA</span><span class="w">   </span><span class="kc">NA</span><span class="w">   </span><span class="kc">NA</span><span class="w">   </span><span class="kc">NA</span><span class="w">   </span><span class="kc">NA</span>
+<span class="w">  </span><span class="m">1997</span><span class="w">  </span><span class="m">20</span><span class="w">  </span><span class="kc">NA</span><span class="w">  </span><span class="kc">NA</span><span class="w">   </span><span class="kc">NA</span><span class="w">   </span><span class="kc">NA</span><span class="w">   </span><span class="kc">NA</span><span class="w">   </span><span class="kc">NA</span><span class="w">   </span><span class="kc">NA</span><span class="w">   </span><span class="kc">NA</span><span class="w">   </span><span class="kc">NA</span>
+
+<span class="o">$</span><span class="n">comauto</span>
+<span class="w">      </span><span class="n">dev</span>
+<span class="n">origin</span><span class="w">      </span><span class="m">1</span><span class="w">      </span><span class="m">2</span><span class="w">      </span><span class="m">3</span><span class="w">      </span><span class="m">4</span><span class="w">      </span><span class="m">5</span><span class="w">      </span><span class="m">6</span><span class="w">      </span><span class="m">7</span><span class="w">      </span><span class="m">8</span><span class="w">      </span><span class="m">9</span><span class="w">     </span><span class="m">10</span>
+<span class="w">  </span><span class="m">1988</span><span class="w"> </span><span class="m">110231</span><span class="w"> </span><span class="m">152848</span><span class="w"> </span><span class="m">168137</span><span class="w"> </span><span class="m">180062</span><span class="w"> </span><span class="m">186150</span><span class="w"> </span><span class="m">188142</span><span class="w"> </span><span class="m">189352</span><span class="w"> </span><span class="m">191307</span><span class="w"> </span><span class="m">191867</span><span class="w"> </span><span class="m">194000</span>
+<span class="w">  </span><span class="m">1989</span><span class="w"> </span><span class="m">121678</span><span class="w"> </span><span class="m">158218</span><span class="w"> </span><span class="m">176744</span><span class="w"> </span><span class="m">188127</span><span class="w"> </span><span class="m">192966</span><span class="w"> </span><span class="m">196104</span><span class="w"> </span><span class="m">199178</span><span class="w"> </span><span class="m">199655</span><span class="w"> </span><span class="m">200949</span><span class="w">     </span><span class="kc">NA</span>
+<span class="w">  </span><span class="m">1990</span><span class="w"> </span><span class="m">123376</span><span class="w"> </span><span class="m">175239</span><span class="w"> </span><span class="m">201955</span><span class="w"> </span><span class="m">214113</span><span class="w"> </span><span class="m">219988</span><span class="w"> </span><span class="m">223308</span><span class="w"> </span><span class="m">225841</span><span class="w"> </span><span class="m">226373</span><span class="w">     </span><span class="kc">NA</span><span class="w">     </span><span class="kc">NA</span>
+<span class="w">  </span><span class="m">1991</span><span class="w"> </span><span class="m">117457</span><span class="w"> </span><span class="m">162601</span><span class="w"> </span><span class="m">183338</span><span class="w"> </span><span class="m">198607</span><span class="w"> </span><span class="m">203398</span><span class="w"> </span><span class="m">205870</span><span class="w"> </span><span class="m">206957</span><span class="w">     </span><span class="kc">NA</span><span class="w">     </span><span class="kc">NA</span><span class="w">     </span><span class="kc">NA</span>
+<span class="w">  </span><span class="m">1992</span><span class="w"> </span><span class="m">124611</span><span class="w"> </span><span class="m">166788</span><span class="w"> </span><span class="m">189771</span><span class="w"> </span><span class="m">201033</span><span class="w"> </span><span class="m">206826</span><span class="w"> </span><span class="m">212361</span><span class="w">     </span><span class="kc">NA</span><span class="w">     </span><span class="kc">NA</span><span class="w">     </span><span class="kc">NA</span><span class="w">     </span><span class="kc">NA</span>
+<span class="w">  </span><span class="m">1993</span><span class="w"> </span><span class="m">137902</span><span class="w"> </span><span class="m">185952</span><span class="w"> </span><span class="m">209357</span><span class="w"> </span><span class="m">220428</span><span class="w"> </span><span class="m">226541</span><span class="w">     </span><span class="kc">NA</span><span class="w">     </span><span class="kc">NA</span><span class="w">     </span><span class="kc">NA</span><span class="w">     </span><span class="kc">NA</span><span class="w">     </span><span class="kc">NA</span>
+<span class="w">  </span><span class="m">1994</span><span class="w"> </span><span class="m">150582</span><span class="w"> </span><span class="m">194528</span><span class="w"> </span><span class="m">216205</span><span class="w"> </span><span class="m">231077</span><span class="w">     </span><span class="kc">NA</span><span class="w">     </span><span class="kc">NA</span><span class="w">     </span><span class="kc">NA</span><span class="w">     </span><span class="kc">NA</span><span class="w">     </span><span class="kc">NA</span><span class="w">     </span><span class="kc">NA</span>
+<span class="w">  </span><span class="m">1995</span><span class="w"> </span><span class="m">150511</span><span class="w"> </span><span class="m">194730</span><span class="w"> </span><span class="m">215037</span><span class="w">     </span><span class="kc">NA</span><span class="w">     </span><span class="kc">NA</span><span class="w">     </span><span class="kc">NA</span><span class="w">     </span><span class="kc">NA</span><span class="w">     </span><span class="kc">NA</span><span class="w">     </span><span class="kc">NA</span><span class="w">     </span><span class="kc">NA</span>
+<span class="w">  </span><span class="m">1996</span><span class="w"> </span><span class="m">142301</span><span class="w"> </span><span class="m">184283</span><span class="w">     </span><span class="kc">NA</span><span class="w">     </span><span class="kc">NA</span><span class="w">     </span><span class="kc">NA</span><span class="w">     </span><span class="kc">NA</span><span class="w">     </span><span class="kc">NA</span><span class="w">     </span><span class="kc">NA</span><span class="w">     </span><span class="kc">NA</span><span class="w">     </span><span class="kc">NA</span>
+<span class="w">  </span><span class="m">1997</span><span class="w"> </span><span class="m">143970</span><span class="w">     </span><span class="kc">NA</span><span class="w">     </span><span class="kc">NA</span><span class="w">     </span><span class="kc">NA</span><span class="w">     </span><span class="kc">NA</span><span class="w">     </span><span class="kc">NA</span><span class="w">     </span><span class="kc">NA</span><span class="w">     </span><span class="kc">NA</span><span class="w">     </span><span class="kc">NA</span><span class="w">     </span><span class="kc">NA</span>
+
+<span class="o">$</span><span class="n">othliab</span>
+<span class="w">      </span><span class="n">dev</span>
+<span class="n">origin</span><span class="w">     </span><span class="m">1</span><span class="w">      </span><span class="m">2</span><span class="w">      </span><span class="m">3</span><span class="w">      </span><span class="m">4</span><span class="w">      </span><span class="m">5</span><span class="w">      </span><span class="m">6</span><span class="w">      </span><span class="m">7</span><span class="w">      </span><span class="m">8</span><span class="w">      </span><span class="m">9</span><span class="w">     </span><span class="m">10</span>
+<span class="w">  </span><span class="m">1988</span><span class="w"> </span><span class="m">22417</span><span class="w">  </span><span class="m">58806</span><span class="w">  </span><span class="m">77536</span><span class="w"> </span><span class="m">103003</span><span class="w"> </span><span class="m">112976</span><span class="w"> </span><span class="m">120070</span><span class="w"> </span><span class="m">124641</span><span class="w"> </span><span class="m">126954</span><span class="w"> </span><span class="m">127444</span><span class="w"> </span><span class="m">128036</span>
+<span class="w">  </span><span class="m">1989</span><span class="w"> </span><span class="m">24740</span><span class="w">  </span><span class="m">55381</span><span class="w">  </span><span class="m">76543</span><span class="w">  </span><span class="m">97608</span><span class="w"> </span><span class="m">113777</span><span class="w"> </span><span class="m">124341</span><span class="w"> </span><span class="m">126171</span><span class="w"> </span><span class="m">128952</span><span class="w"> </span><span class="m">132618</span><span class="w">     </span><span class="kc">NA</span>
+<span class="w">  </span><span class="m">1990</span><span class="w"> </span><span class="m">19432</span><span class="w">  </span><span class="m">63891</span><span class="w">  </span><span class="m">94243</span><span class="w"> </span><span class="m">119678</span><span class="w"> </span><span class="m">124938</span><span class="w"> </span><span class="m">129990</span><span class="w"> </span><span class="m">133964</span><span class="w"> </span><span class="m">133949</span><span class="w">     </span><span class="kc">NA</span><span class="w">     </span><span class="kc">NA</span>
+<span class="w">  </span><span class="m">1991</span><span class="w"> </span><span class="m">25821</span><span class="w">  </span><span class="m">84453</span><span class="w"> </span><span class="m">136275</span><span class="w"> </span><span class="m">159204</span><span class="w"> </span><span class="m">169820</span><span class="w"> </span><span class="m">172446</span><span class="w"> </span><span class="m">181744</span><span class="w">     </span><span class="kc">NA</span><span class="w">     </span><span class="kc">NA</span><span class="w">     </span><span class="kc">NA</span>
+<span class="w">  </span><span class="m">1992</span><span class="w"> </span><span class="m">38377</span><span class="w">  </span><span class="m">98045</span><span class="w"> </span><span class="m">138205</span><span class="w"> </span><span class="m">154554</span><span class="w"> </span><span class="m">171701</span><span class="w"> </span><span class="m">177467</span><span class="w">     </span><span class="kc">NA</span><span class="w">     </span><span class="kc">NA</span><span class="w">     </span><span class="kc">NA</span><span class="w">     </span><span class="kc">NA</span>
+<span class="w">  </span><span class="m">1993</span><span class="w"> </span><span class="m">53001</span><span class="w"> </span><span class="m">150478</span><span class="w"> </span><span class="m">196273</span><span class="w"> </span><span class="m">224523</span><span class="w"> </span><span class="m">232681</span><span class="w">     </span><span class="kc">NA</span><span class="w">     </span><span class="kc">NA</span><span class="w">     </span><span class="kc">NA</span><span class="w">     </span><span class="kc">NA</span><span class="w">     </span><span class="kc">NA</span>
+<span class="w">  </span><span class="m">1994</span><span class="w"> </span><span class="m">50848</span><span class="w"> </span><span class="m">127767</span><span class="w"> </span><span class="m">187297</span><span class="w"> </span><span class="m">233255</span><span class="w">     </span><span class="kc">NA</span><span class="w">     </span><span class="kc">NA</span><span class="w">     </span><span class="kc">NA</span><span class="w">     </span><span class="kc">NA</span><span class="w">     </span><span class="kc">NA</span><span class="w">     </span><span class="kc">NA</span>
+<span class="w">  </span><span class="m">1995</span><span class="w"> </span><span class="m">59140</span><span class="w"> </span><span class="m">149648</span><span class="w"> </span><span class="m">215701</span><span class="w">     </span><span class="kc">NA</span><span class="w">     </span><span class="kc">NA</span><span class="w">     </span><span class="kc">NA</span><span class="w">     </span><span class="kc">NA</span><span class="w">     </span><span class="kc">NA</span><span class="w">     </span><span class="kc">NA</span><span class="w">     </span><span class="kc">NA</span>
+<span class="w">  </span><span class="m">1996</span><span class="w"> </span><span class="m">71637</span><span class="w"> </span><span class="m">159561</span><span class="w">     </span><span class="kc">NA</span><span class="w">     </span><span class="kc">NA</span><span class="w">     </span><span class="kc">NA</span><span class="w">     </span><span class="kc">NA</span><span class="w">     </span><span class="kc">NA</span><span class="w">     </span><span class="kc">NA</span><span class="w">     </span><span class="kc">NA</span><span class="w">     </span><span class="kc">NA</span>
+<span class="w">  </span><span class="m">1997</span><span class="w"> </span><span class="m">82937</span><span class="w">     </span><span class="kc">NA</span><span class="w">     </span><span class="kc">NA</span><span class="w">     </span><span class="kc">NA</span><span class="w">     </span><span class="kc">NA</span><span class="w">     </span><span class="kc">NA</span><span class="w">     </span><span class="kc">NA</span><span class="w">     </span><span class="kc">NA</span><span class="w">     </span><span class="kc">NA</span><span class="w">     </span><span class="kc">NA</span>
+</code></pre></div>
+
+<p>Next, for each triangle, call the <code>BootChainLadder</code> function (available in the ChainLadder library), running 5000 
+simulations and retaining only the total <span class="caps">IBNR</span> samples from each invocation (discarding <span class="caps">IBNR</span> simulations by accident year). 
+We replace simulated values less than or equal to 1 with&nbsp;1:</p>
+<div class="highlight"><pre><span></span><code><span class="n">ibnrSimsDF</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">foreach</span><span class="p">(</span>
+<span class="w">    </span><span class="n">ii</span><span class="o">=</span><span class="m">1</span><span class="o">:</span><span class="nf">length</span><span class="p">(</span><span class="n">triData</span><span class="p">),</span><span class="w"> </span><span class="n">.inorder</span><span class="o">=</span><span class="kc">TRUE</span><span class="p">,</span><span class="w"> </span><span class="n">.errorhandling</span><span class="o">=</span><span class="s">&quot;stop&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="n">.combine</span><span class="o">=</span><span class="s">&quot;cbind.data.frame&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">.final</span><span class="o">=</span><span class="n">setDT</span>
+<span class="p">)</span><span class="w"> </span><span class="o">%do%</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="n">tri</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">triData</span><span class="p">[[</span><span class="n">ii</span><span class="p">]]</span>
+<span class="w">    </span><span class="n">bcl</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">BootChainLadder</span><span class="p">(</span><span class="n">tri</span><span class="p">,</span><span class="w"> </span><span class="n">R</span><span class="o">=</span><span class="m">5000</span><span class="p">,</span><span class="w"> </span><span class="n">process.distr</span><span class="o">=</span><span class="s">&quot;gamma&quot;</span><span class="p">)</span>
+<span class="w">    </span><span class="n">lobSims</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">bcl</span><span class="o">$</span><span class="n">IBNR.Totals</span>
+<span class="w">    </span><span class="n">lobSims</span><span class="p">[</span><span class="n">lobSims</span><span class="o">&lt;</span><span class="m">1</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="m">1</span>
+<span class="w">    </span><span class="n">lobSims</span>
+<span class="p">}</span>
+
+<span class="c1"># Set names of each column in simsDataDF to associated LOB.</span>
+<span class="nf">names</span><span class="p">(</span><span class="n">ibnrSimsDF</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">names</span><span class="p">(</span><span class="n">triData</span><span class="p">)</span>
+</code></pre></div>
+
+<p>Inspecting the first 6 records of ibnrSimsDF&nbsp;yields:</p>
+<div class="highlight"><pre><span></span><code><span class="o">&gt;</span><span class="w"> </span><span class="nf">head</span><span class="p">(</span><span class="n">ibnrSimsDF</span><span class="p">)</span>
+<span class="w">     </span><span class="n">wkcomp</span><span class="w"> </span><span class="n">prodliab</span><span class="w">  </span><span class="n">comauto</span><span class="w">  </span><span class="n">othliab</span>
+<span class="m">1</span><span class="o">:</span><span class="w"> </span><span class="m">213282.5</span><span class="w"> </span><span class="m">309.9531</span><span class="w"> </span><span class="m">207524.1</span><span class="w"> </span><span class="m">836339.0</span>
+<span class="m">2</span><span class="o">:</span><span class="w"> </span><span class="m">185281.3</span><span class="w"> </span><span class="m">453.1356</span><span class="w"> </span><span class="m">228032.9</span><span class="w"> </span><span class="m">876116.3</span>
+<span class="m">3</span><span class="o">:</span><span class="w"> </span><span class="m">178462.7</span><span class="w"> </span><span class="m">263.7076</span><span class="w"> </span><span class="m">246759.9</span><span class="w"> </span><span class="m">633045.5</span>
+<span class="m">4</span><span class="o">:</span><span class="w"> </span><span class="m">204928.1</span><span class="w"> </span><span class="m">169.7184</span><span class="w"> </span><span class="m">246953.0</span><span class="w"> </span><span class="m">641145.2</span>
+<span class="m">5</span><span class="o">:</span><span class="w"> </span><span class="m">168382.3</span><span class="w"> </span><span class="m">408.6908</span><span class="w"> </span><span class="m">213764.4</span><span class="w"> </span><span class="m">717701.9</span>
+<span class="m">6</span><span class="o">:</span><span class="w"> </span><span class="m">158486.8</span><span class="w"> </span><span class="m">194.0509</span><span class="w"> </span><span class="m">227606.5</span><span class="w"> </span><span class="m">711641.2</span>
+</code></pre></div>
+
+<p>ibnrSimsDF contains 5000 rows, with the value in each row representing the total simulated reserve need across all 
+accident years for the lob in question. It is possible to produce histograms of the simulated total <span class="caps">IBNR</span> using ggplot2. 
+The code that follows generates a faceted quad-plot of the sampling distribution of total <span class="caps">IBNR</span> for each lob, with a 
+vertical dashed red line marking the location of the distribution mean. We first transform ibnrSimsDF into a 
+ggplot2-compatible format (which is&nbsp;ggDF):</p>
+<div class="highlight"><pre><span></span><code><span class="c1"># Create faceted quad-plot representing sampling distribution of total IBNR.</span>
+<span class="n">ggDF</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">data.table</span><span class="o">::</span><span class="nf">melt</span><span class="p">(</span>
+<span class="w">    </span><span class="n">ibnrSimsDF</span><span class="p">,</span><span class="w"> </span><span class="n">measure.vars</span><span class="o">=</span><span class="nf">names</span><span class="p">(</span><span class="n">ibnrSimsDF</span><span class="p">),</span><span class="w"> </span><span class="n">value.name</span><span class="o">=</span><span class="s">&quot;ibnr&quot;</span><span class="p">,</span><span class="w"> </span>
+<span class="w">    </span><span class="n">variable.name</span><span class="o">=</span><span class="s">&quot;lob&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">variable.factor</span><span class="o">=</span><span class="kc">FALSE</span>
+<span class="w">    </span><span class="p">)</span>
+
+<span class="c1"># Add mean.ibnr for huistogram overlay.</span>
+<span class="n">ggDF</span><span class="p">[,</span><span class="n">mean.ibnr</span><span class="o">:=</span><span class="nf">mean</span><span class="p">(</span><span class="n">ibnr</span><span class="p">,</span><span class="w"> </span><span class="n">na.rm</span><span class="o">=</span><span class="kc">TRUE</span><span class="p">),</span><span class="w"> </span><span class="n">by</span><span class="o">=</span><span class="s">&quot;lob&quot;</span><span class="p">]</span>
+
+<span class="nf">ggplot</span><span class="p">(</span><span class="n">ggDF</span><span class="p">,</span><span class="w"> </span><span class="nf">aes</span><span class="p">(</span><span class="n">x</span><span class="o">=</span><span class="n">ibnr</span><span class="p">))</span><span class="w"> </span><span class="o">+</span><span class="w"> </span>
+<span class="w">    </span><span class="nf">geom_histogram</span><span class="p">(</span><span class="n">bins</span><span class="o">=</span><span class="m">35</span><span class="p">,</span><span class="w"> </span><span class="n">color</span><span class="o">=</span><span class="s">&quot;black&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">fill</span><span class="o">=</span><span class="s">&quot;white&quot;</span><span class="p">)</span><span class="w"> </span><span class="o">+</span><span class="w"> </span>
+<span class="w">    </span><span class="nf">geom_vline</span><span class="p">(</span>
+<span class="w">        </span><span class="nf">aes</span><span class="p">(</span><span class="n">xintercept</span><span class="o">=</span><span class="n">mean.ibnr</span><span class="p">),</span><span class="w"> </span><span class="n">color</span><span class="o">=</span><span class="s">&quot;red&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">linetype</span><span class="o">=</span><span class="s">&quot;dashed&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">size</span><span class="o">=</span><span class="m">1</span>
+<span class="w">        </span><span class="p">)</span><span class="w"> </span><span class="o">+</span>
+<span class="w">    </span><span class="nf">theme</span><span class="p">(</span>
+<span class="w">        </span><span class="n">axis.title.y</span><span class="o">=</span><span class="nf">element_blank</span><span class="p">(),</span><span class="w"> </span><span class="n">axis.text.y</span><span class="o">=</span><span class="nf">element_blank</span><span class="p">(),</span>
+<span class="w">        </span><span class="n">axis.ticks.y</span><span class="o">=</span><span class="nf">element_blank</span><span class="p">(),</span><span class="w"> </span><span class="n">axis.title.x</span><span class="o">=</span><span class="nf">element_blank</span><span class="p">()</span>
+<span class="w">        </span><span class="p">)</span><span class="w"> </span><span class="o">+</span><span class="w"> </span>
+<span class="w">    </span><span class="nf">scale_x_continuous</span><span class="p">(</span>
+<span class="w">        </span><span class="n">labels</span><span class="o">=</span><span class="nf">function</span><span class="p">(</span><span class="n">x</span><span class="p">)</span><span class="w"> </span><span class="nf">format</span><span class="p">(</span><span class="n">x</span><span class="p">,</span><span class="w"> </span><span class="n">big.mark</span><span class="o">=</span><span class="s">&quot;,&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">scientific</span><span class="o">=</span><span class="kc">FALSE</span><span class="p">)</span>
+<span class="w">        </span><span class="p">)</span><span class="w"> </span><span class="o">+</span>
+<span class="w">    </span><span class="nf">facet_wrap</span><span class="p">(</span><span class="o">~</span><span class="n">lob</span><span class="p">,</span><span class="w"> </span><span class="n">scales</span><span class="o">=</span><span class="s">&quot;free&quot;</span><span class="p">)</span>
+</code></pre></div>
+
+<p>Running the code above produces the following&nbsp;exhibit:</p>
+<p><img alt="correlated0" src="https://drive.google.com/uc?export=view&amp;id=1VUBNB0RbXYz8bBNJFvn5NQ02mCUgHbqV"></p>
+<h3>Quantifying Total Reserve&nbsp;Variability</h3>
+<p>If all we are trying to do is determine the expected value of the reserve run-off, we can calculate the expected value for 
+each lob separately and add all the expectations together. However, if we are trying to quantify a value other than the 
+mean (such as the 75th percentile), we cannot simply sum across the lines of business. If we do so, we will overstate the 
+aggregate reserve need. The only time the sum of each lob&#8217;s 75th percentile would be appropriate for the aggregate reserve 
+indication is when all lines are fully correlated with each other, which is highly&nbsp;unlikely.</p>
+<p>To account for correlation between lobs, we rely on the rank correlation methodology described in 
+<em>Two Approaches to Calculating Correlated Reserve Indications Across Multiple Lines of Business</em> (see below). 
+The methodology is carried out through a two-step&nbsp;process:</p>
+<p>In the first step, a stochastic reserving technique is used to generate N possible reserve runoffs from each data triangle 
+being analyzed (this is what we have in ibnrSimsDF). In the second step, a correlation matrix is specified, where individual 
+elements of the correlation matrix describe the association between different pairs of lobs. With the correlation 
+matrix $\Sigma$, carry out the following&nbsp;steps:</p>
+<ol>
+<li>
+<p>Compute the Cholesky decomposition of $\Sigma$, that is, find the unique lower triangular matrix $A$ such 
+that $<span class="caps">AA</span>^{T} =&nbsp;\Sigma$.  </p>
+</li>
+<li>
+<p>Compute $Z = (z_{1}, \dots, z_{n})^{T}$, a vector whose components are $n$ independent standard normal 
+variates (for our example,&nbsp;$n=5000$.)  </p>
+</li>
+<li>
+<p>Let $X = \mu + <span class="caps">AZ</span>$. Since $Z$ represents independent draws from the standard normal distribution, the value of the 
+mean vector $\mu$ is 0. Therefore correlated random draws are obtained by matrix multiplying $A$ with&nbsp;$Z$.</p>
+</li>
+</ol>
+<p>For the correlation matrix,  we&#8217;ll initially assume no correlation between lobs (all off-diagonal elements=0). Later on, 
+we&#8217;ll compare estimated reserve need as a function of changing&nbsp;correlation.   </p>
+<p>The correlation matrix can be initialized as&nbsp;follows:</p>
+<div class="highlight"><pre><span></span><code><span class="n">sigma</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">matrix</span><span class="p">(</span>
+<span class="w">    </span><span class="nf">c</span><span class="p">(</span><span class="nf">c</span><span class="p">(</span><span class="m">1</span><span class="p">,</span><span class="w"> </span><span class="m">0</span><span class="p">,</span><span class="w"> </span><span class="m">0</span><span class="p">,</span><span class="w"> </span><span class="m">0</span><span class="p">),</span><span class="w"> </span>
+<span class="w">      </span><span class="nf">c</span><span class="p">(</span><span class="m">0</span><span class="p">,</span><span class="w"> </span><span class="m">1</span><span class="p">,</span><span class="w"> </span><span class="m">0</span><span class="p">,</span><span class="w"> </span><span class="m">0</span><span class="p">),</span>
+<span class="w">      </span><span class="nf">c</span><span class="p">(</span><span class="m">0</span><span class="p">,</span><span class="w"> </span><span class="m">0</span><span class="p">,</span><span class="w"> </span><span class="m">1</span><span class="p">,</span><span class="w"> </span><span class="m">0</span><span class="p">),</span>
+<span class="w">      </span><span class="nf">c</span><span class="p">(</span><span class="m">0</span><span class="p">,</span><span class="w"> </span><span class="m">0</span><span class="p">,</span><span class="w"> </span><span class="m">0</span><span class="p">,</span><span class="w"> </span><span class="m">1</span><span class="p">)),</span>
+<span class="w">    </span><span class="n">nrow</span><span class="o">=</span><span class="m">4</span><span class="p">,</span><span class="w"> </span>
+<span class="w">    </span><span class="n">dimnames</span><span class="o">=</span><span class="nf">list</span><span class="p">(</span><span class="nf">names</span><span class="p">(</span><span class="n">ibnrSimsDF</span><span class="p">),</span><span class="w"> </span><span class="nf">names</span><span class="p">(</span><span class="n">ibnrSimsDF</span><span class="p">))</span>
+<span class="w">    </span><span class="p">)</span>
+</code></pre></div>
+
+<p>Which looks like the&nbsp;following:</p>
+<div class="highlight"><pre><span></span><code><span class="w">         </span><span class="n">wkcomp</span><span class="w"> </span><span class="n">prodliab</span><span class="w"> </span><span class="n">comauto</span><span class="w"> </span><span class="n">othliab</span>
+<span class="n">wkcomp</span><span class="w">        </span><span class="m">1</span><span class="w">        </span><span class="m">0</span><span class="w">       </span><span class="m">0</span><span class="w">       </span><span class="m">0</span>
+<span class="n">prodliab</span><span class="w">      </span><span class="m">0</span><span class="w">        </span><span class="m">1</span><span class="w">       </span><span class="m">0</span><span class="w">       </span><span class="m">0</span>
+<span class="n">comauto</span><span class="w">       </span><span class="m">0</span><span class="w">        </span><span class="m">0</span><span class="w">       </span><span class="m">1</span><span class="w">       </span><span class="m">0</span>
+<span class="n">othliab</span><span class="w">       </span><span class="m">0</span><span class="w">        </span><span class="m">0</span><span class="w">       </span><span class="m">0</span><span class="w">       </span><span class="m">1</span>
+</code></pre></div>
+
+<p>The next code block implements steps&nbsp;1-3:</p>
+<div class="highlight"><pre><span></span><code><span class="n">A</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">t</span><span class="p">(</span><span class="nf">chol</span><span class="p">(</span><span class="n">sigma</span><span class="p">))</span>
+<span class="n">Z</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">matrix</span><span class="p">(</span><span class="nf">rnorm</span><span class="p">(</span><span class="nf">ncol</span><span class="p">(</span><span class="n">A</span><span class="p">)</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="m">5000</span><span class="p">),</span><span class="w"> </span><span class="n">nrow</span><span class="o">=</span><span class="m">5000</span><span class="p">,</span><span class="w"> </span><span class="n">ncol</span><span class="o">=</span><span class="nf">ncol</span><span class="p">(</span><span class="n">A</span><span class="p">))</span>
+<span class="n">X</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Z</span><span class="w"> </span><span class="o">%*%</span><span class="w"> </span><span class="n">A</span>
+</code></pre></div>
+
+<p>Checking out the first few records of <code>X</code> yields:</p>
+<div class="highlight"><pre><span></span><code><span class="o">&gt;</span><span class="w"> </span><span class="nf">head</span><span class="p">(</span><span class="n">X</span><span class="p">)</span>
+<span class="w">         </span><span class="n">wkcomp</span><span class="w">    </span><span class="n">prodliab</span><span class="w">    </span><span class="n">comauto</span><span class="w">    </span><span class="n">othliab</span>
+<span class="p">[</span><span class="m">1</span><span class="p">,]</span><span class="w">  </span><span class="m">0.2256225</span><span class="w">  </span><span class="m">0.66492692</span><span class="w">  </span><span class="m">0.8239846</span><span class="w"> </span><span class="m">-1.5497317</span>
+<span class="p">[</span><span class="m">2</span><span class="p">,]</span><span class="w">  </span><span class="m">0.1101583</span><span class="w">  </span><span class="m">0.60652201</span><span class="w"> </span><span class="m">-0.9572046</span><span class="w"> </span><span class="m">-0.5200923</span>
+<span class="p">[</span><span class="m">3</span><span class="p">,]</span><span class="w"> </span><span class="m">-0.5961369</span><span class="w">  </span><span class="m">0.13732270</span><span class="w"> </span><span class="m">-1.5355783</span><span class="w">  </span><span class="m">1.0622470</span>
+<span class="p">[</span><span class="m">4</span><span class="p">,]</span><span class="w">  </span><span class="m">0.6863108</span><span class="w"> </span><span class="m">-1.02719480</span><span class="w">  </span><span class="m">0.1086142</span><span class="w"> </span><span class="m">-0.4941367</span>
+<span class="p">[</span><span class="m">5</span><span class="p">,]</span><span class="w">  </span><span class="m">1.3918400</span><span class="w">  </span><span class="m">0.09805293</span><span class="w">  </span><span class="m">0.3412182</span><span class="w"> </span><span class="m">-0.1409186</span>
+<span class="p">[</span><span class="m">6</span><span class="p">,]</span><span class="w">  </span><span class="m">0.5547157</span><span class="w">  </span><span class="m">1.57012447</span><span class="w">  </span><span class="m">0.1263973</span><span class="w">  </span><span class="m">0.7135559</span>
+</code></pre></div>
+
+<p>For each column in X, we need to obtain the rank of each correlated random draw. This can be accomplished by&nbsp;running:</p>
+<div class="highlight"><pre><span></span><code><span class="n">rankX</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">foreach</span><span class="p">(</span><span class="n">ii</span><span class="o">=</span><span class="m">1</span><span class="o">:</span><span class="nf">ncol</span><span class="p">(</span><span class="n">X</span><span class="p">),</span><span class="w"> </span><span class="n">.combine</span><span class="o">=</span><span class="s">&quot;cbind&quot;</span><span class="p">)</span><span class="w"> </span><span class="o">%do%</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nf">rank</span><span class="p">(</span><span class="n">X</span><span class="p">[,</span><span class="n">ii</span><span class="p">])</span><span class="w"> </span><span class="p">}</span>
+<span class="nf">colnames</span><span class="p">(</span><span class="n">rankX</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">colnames</span><span class="p">(</span><span class="n">sigma</span><span class="p">)</span>
+</code></pre></div>
+
+<p>Inspecting the first few records from <code>rankX</code> yields:</p>
+<div class="highlight"><pre><span></span><code><span class="o">&gt;</span><span class="w"> </span><span class="nf">head</span><span class="p">(</span><span class="n">rankX</span><span class="p">)</span>
+<span class="w">     </span><span class="n">wkcomp</span><span class="w"> </span><span class="n">prodliab</span><span class="w"> </span><span class="n">comauto</span><span class="w"> </span><span class="n">othliab</span>
+<span class="p">[</span><span class="m">1</span><span class="p">,]</span><span class="w">   </span><span class="m">2971</span><span class="w">     </span><span class="m">3758</span><span class="w">    </span><span class="m">3975</span><span class="w">     </span><span class="m">293</span>
+<span class="p">[</span><span class="m">2</span><span class="p">,]</span><span class="w">   </span><span class="m">2751</span><span class="w">     </span><span class="m">3658</span><span class="w">     </span><span class="m">856</span><span class="w">    </span><span class="m">1493</span>
+<span class="p">[</span><span class="m">3</span><span class="p">,]</span><span class="w">   </span><span class="m">1393</span><span class="w">     </span><span class="m">2759</span><span class="w">     </span><span class="m">288</span><span class="w">    </span><span class="m">4335</span>
+<span class="p">[</span><span class="m">4</span><span class="p">,]</span><span class="w">   </span><span class="m">3785</span><span class="w">      </span><span class="m">782</span><span class="w">    </span><span class="m">2746</span><span class="w">    </span><span class="m">1544</span>
+<span class="p">[</span><span class="m">5</span><span class="p">,]</span><span class="w">   </span><span class="m">4619</span><span class="w">     </span><span class="m">2684</span><span class="w">    </span><span class="m">3178</span><span class="w">    </span><span class="m">2221</span>
+<span class="p">[</span><span class="m">6</span><span class="p">,]</span><span class="w">   </span><span class="m">3569</span><span class="w">     </span><span class="m">4687</span><span class="w">    </span><span class="m">2784</span><span class="w">    </span><span class="m">3866</span>
+</code></pre></div>
+
+<p>To prepare for the rank correlation step, we need to order our total <span class="caps">IBNR</span> simulations from smallest to largest within each 
+lob&nbsp;column:</p>
+<div class="highlight"><pre><span></span><code><span class="c1"># Order total bootstrapped ibnr sims from smallest to largest. </span>
+<span class="n">orderedSimsDF</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">foreach</span><span class="p">(</span>
+<span class="w">    </span><span class="n">ii</span><span class="o">=</span><span class="m">1</span><span class="o">:</span><span class="nf">length</span><span class="p">(</span><span class="nf">names</span><span class="p">(</span><span class="n">ibnrSimsDF</span><span class="p">)),</span><span class="w"> </span><span class="n">.combine</span><span class="o">=</span><span class="s">&quot;cbind.data.frame&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="n">.final</span><span class="o">=</span><span class="n">setDT</span>
+<span class="p">)</span><span class="w"> </span><span class="o">%do%</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="n">currLOB</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">names</span><span class="p">(</span><span class="n">ibnrSimsDF</span><span class="p">)[[</span><span class="n">ii</span><span class="p">]]</span>
+<span class="w">    </span><span class="nf">sort</span><span class="p">(</span><span class="n">ibnrSimsDF</span><span class="p">[[</span><span class="n">currLOB</span><span class="p">]])</span>
+<span class="p">}</span>
+
+<span class="nf">names</span><span class="p">(</span><span class="n">orderedSimsDF</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">names</span><span class="p">(</span><span class="n">ibnrSimsDF</span><span class="p">)</span>
+</code></pre></div>
+
+<p>Then for each rank in <code>rankX</code>, we lookup the corresponding position-wise element from orderedSimsDF. This ensures 
+that the rank order correlations between lobs are the same as the correlations imposed on the random normal samples. 
+For example, the first row of rankX&nbsp;is:</p>
+<div class="highlight"><pre><span></span><code>  wkcomp prodliab  comauto  othliab 
+    2971     3758     3975      293 
+</code></pre></div>
+
+<p>Then using orderedSimsDF, we lookup the 2971st element under wkcomp, the 3758th element under prodliab,
+the 3975th element under comauto and the 293rd element under othliab. This can be accomplished as&nbsp;follows:</p>
+<div class="highlight"><pre><span></span><code><span class="c1"># Get correlated IBNR samples.</span>
+<span class="n">corrIBNR</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">foreach</span><span class="p">(</span>
+<span class="w">    </span><span class="n">ii</span><span class="o">=</span><span class="m">1</span><span class="o">:</span><span class="nf">length</span><span class="p">(</span><span class="nf">names</span><span class="p">(</span><span class="n">orderedSimsDF</span><span class="p">)),</span><span class="w"> </span><span class="n">.combine</span><span class="o">=</span><span class="s">&quot;cbind&quot;</span>
+<span class="p">)</span><span class="w"> </span><span class="o">%do%</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="n">currLOB</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">names</span><span class="p">(</span><span class="n">orderedSimsDF</span><span class="p">)[[</span><span class="n">ii</span><span class="p">]]</span>
+<span class="w">    </span><span class="n">lobIndx</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">rankR</span><span class="p">[,</span><span class="n">currLOB</span><span class="p">]</span>
+<span class="w">    </span><span class="n">orderedSimsDF</span><span class="p">[</span><span class="n">lobIndx</span><span class="p">,</span><span class="w"> </span><span class="nf">get</span><span class="p">(</span><span class="n">currLOB</span><span class="p">)]</span>
+<span class="p">}</span>
+
+<span class="nf">colnames</span><span class="p">(</span><span class="n">corrIBNR</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">names</span><span class="p">(</span><span class="n">orderedSimsDF</span><span class="p">)</span>
+</code></pre></div>
+
+<p>Finally, we sum the correlated samples across lobs, resulting in a vector of values representing the aggregate reserve&nbsp;distribution:</p>
+<div class="highlight"><pre><span></span><code><span class="n">totalIBNR</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">apply</span><span class="p">(</span><span class="n">corrIBNR</span><span class="p">,</span><span class="w"> </span><span class="n">MARGIN</span><span class="o">=</span><span class="m">1</span><span class="p">,</span><span class="w"> </span><span class="n">sum</span><span class="p">)</span>
+</code></pre></div>
+
+<p>Percentiles of the aggregate <span class="caps">IBNR</span> distribution can be obtained by&nbsp;calling:</p>
+<div class="highlight"><pre><span></span><code><span class="o">&gt;</span><span class="w"> </span><span class="nf">quantile</span><span class="p">(</span><span class="n">totalIBNR</span><span class="p">,</span><span class="w"> </span><span class="nf">c</span><span class="p">(</span><span class="n">.</span><span class="m">01</span><span class="p">,</span><span class="w"> </span><span class="n">.</span><span class="m">25</span><span class="p">,</span><span class="w"> </span><span class="n">.</span><span class="m">50</span><span class="p">,</span><span class="w"> </span><span class="n">.</span><span class="m">75</span><span class="p">,</span><span class="w"> </span><span class="n">.</span><span class="m">99</span><span class="p">))</span>
+<span class="w">       </span><span class="m">1</span><span class="o">%       25%</span><span class="w">       </span><span class="m">50</span><span class="o">%       75%</span><span class="w">       </span><span class="m">99</span>%<span class="w"> </span>
+<span class="w"> </span><span class="m">962340.6</span><span class="w"> </span><span class="m">1107900.3</span><span class="w"> </span><span class="m">1171348.8</span><span class="w"> </span><span class="m">1241553.0</span><span class="w"> </span><span class="m">1428743.0</span><span class="w"> </span>
+</code></pre></div>
+
+<h3>Comparing different values of&nbsp;$\Sigma$</h3>
+<p>We&#8217;ve re-run procedure described in the previous section for 5 different correlatiion matrices, assuming 0, .25, .50, .75 
+and .99 off-diagonal correlation, and combined the results into a single data.table <code>qqDF</code>. I then estimated the 
+1st, 25th, 50th, 75th and 99th percentile of each aggregate reserve distribution and created an exhibit comparing the 
+distribution of each as a function of percentile. The code used to create the exhibit is given&nbsp;below:</p>
+<div class="highlight"><pre><span></span><code><span class="c1"># ------------------------------------------------------------------------</span>
+<span class="c1"># Assume qqDF contains  1st, 25th, 50th, 75th and 99th percentile of the</span>
+<span class="c1"># aggregate IBNR distribution for off-diagonal correlation values of </span>
+<span class="c1"># 0, .25, .50, .75 and .99. The first few records of qqDF look like:</span>
+<span class="c1">#</span>
+<span class="c1">#          rho    x         y</span>
+<span class="c1">#       1:  0% 0.00  871243.8</span>
+<span class="c1">#       2:  0% 0.25 1107900.3</span>
+<span class="c1">#       3:  0% 0.50 1171348.8</span>
+<span class="c1">#       4:  0% 0.75 1241553.0</span>
+<span class="c1">#       5:  0% 0.99 1428743.0</span>
+<span class="c1"># </span>
+<span class="c1"># ------------------------------------------------------------------------</span>
+<span class="nf">ggplot</span><span class="p">(</span><span class="n">qqDF</span><span class="p">,</span><span class="w"> </span><span class="nf">aes</span><span class="p">(</span><span class="n">x</span><span class="o">=</span><span class="n">x</span><span class="p">,</span><span class="w"> </span><span class="n">y</span><span class="o">=</span><span class="n">y</span><span class="p">))</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="nf">geom_line</span><span class="p">(</span><span class="nf">aes</span><span class="p">(</span><span class="n">color</span><span class="o">=</span><span class="n">rho</span><span class="p">),</span><span class="w"> </span><span class="n">size</span><span class="o">=</span><span class="n">.</span><span class="m">5</span><span class="p">)</span><span class="w"> </span><span class="o">+</span><span class="w"> </span>
+<span class="w">    </span><span class="nf">scale_y_continuous</span><span class="p">(</span>
+<span class="w">        </span><span class="n">labels</span><span class="o">=</span><span class="nf">function</span><span class="p">(</span><span class="n">x</span><span class="p">)</span><span class="w"> </span><span class="nf">format</span><span class="p">(</span><span class="n">x</span><span class="p">,</span><span class="w"> </span><span class="n">big.mark</span><span class="o">=</span><span class="s">&quot;,&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">scientific</span><span class="o">=</span><span class="kc">FALSE</span><span class="p">)</span>
+<span class="w">        </span><span class="p">)</span><span class="w"> </span><span class="o">+</span><span class="w"> </span>
+<span class="w">    </span><span class="nf">theme</span><span class="p">(</span>
+<span class="w">        </span><span class="n">axis.title.y</span><span class="o">=</span><span class="nf">element_blank</span><span class="p">(),</span><span class="w"> </span><span class="n">axis.title.x</span><span class="o">=</span><span class="nf">element_blank</span><span class="p">()</span>
+<span class="w">        </span><span class="p">)</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="nf">xlim</span><span class="p">(</span><span class="m">0</span><span class="p">,</span><span class="w"> </span><span class="m">1</span><span class="p">)</span><span class="w"> </span><span class="o">+</span><span class="w"> </span>
+<span class="w">    </span><span class="nf">ggtitle</span><span class="p">(</span><span class="s">&quot;Aggregate reserve distribution by correlation&quot;</span><span class="p">)</span>
+</code></pre></div>
+
+<p>Which produces the&nbsp;following:</p>
+<p><img alt="correlated1" src="https://drive.google.com/uc?export=view&amp;id=1Vm9ge0f6l2YS6i5JwYXpClMTBFWloyam"></p>
+<p>By changing <code>xlim(.50, 1)</code> in the code above, we can zoom in on the right-hand side of the&nbsp;distribution:</p>
+<p><img alt="correlated2" src="https://drive.google.com/uc?export=view&amp;id=1Voj_2aYOtGH3rNdESStLcyw4Tq7i0CjH"></p>
+<p>We see that around .50 mark on the x-axis, there is essntially no difference between 0% and 25% off-diagonal correlation 
+assumption. However, as we move right along the x-axis, there&#8217;s a greater and greater discrepancy. when  x=.99, the 
+difference in the estimated total needed reserve is ~50,000, which represents approximately a 5%&nbsp;difference.</p>
+<p>A few&nbsp;take-aways:</p>
+<ul>
+<li>
+<p>If all we are trying to do is determine the expected value of the reserve run-off, we can calculate the expected value 
+for each lob separately then add the expectations&nbsp;together.    </p>
+</li>
+<li>
+<p>If the aim is to quantify a value other than the mean, such as the 75th percentile, we cannot simply sum across the lines 
+of business, as this is akin to assuming full correlation between lines of business, which is unlikely and will overstate 
+the aggregate reserve&nbsp;need. </p>
+</li>
+<li>
+<p>Off-diagonal correlation values do not need to be the same, but the matrix does need to be symmetric 
+(identical values at $m_{i,j}$ and&nbsp;$m_{j,i}$).</p>
+</li>
+</ul>
+<h4>References</h4>
+<ul>
+<li><a href="https://www.casact.org/sites/default/files/database/forum_02fforum_02ff211.pdf">Two Approaches to Calculating Correlated Reserve Indications Across Multiple Lines of&nbsp;Business</a></li>
+</ul>
+            </div>
+            <!-- /.entry-content -->
+        </article>
+    </section>
+
+        </div>
+        <div class="col-sm-3" id="sidebar">
+            <aside>
+<div id="aboutme">
+        <p>
+            <img width="100%" class="img-thumbnail" src="./images/JDTGOOG.JPG"/>
+        </p>
+    <p>
+      <strong>About James D. Triveri</strong><br/>
+        Data Scientist interested in ML/DL, automation and scientific computing.
+    </p>
+</div><!-- Sidebar -->
+<section class="well well-sm">
+  <ul class="list-group list-group-flush">
+
+<!-- Sidebar/Links -->
+<li class="list-group-item">
+  <h4><i class="fa fa-external-link-square fa-lg"></i><span class="icon-label">Links</span></h4>
+  <ul class="list-group" id="links">
+    <li class="list-group-item">
+      <a href="http://python.org/" target="_blank">Python.org</a>
+    </li>
+    <li class="list-group-item">
+      <a href="https://docs.python.org/3/py-modindex.html" target="_blank">The Python Module Index</a>
+    </li>
+    <li class="list-group-item">
+      <a href="https://scikit-learn.org/stable/documentation.html" target="_blank">Scikit-Learn</a>
+    </li>
+    <li class="list-group-item">
+      <a href="https://www.scipy.org/docs.html" target="_blank">Scipy Docs</a>
+    </li>
+    <li class="list-group-item">
+      <a href="https://openai.com/" target="_blank">OpenAI</a>
+    </li>
+  </ul>
+</li>
+<!-- End Sidebar/Links -->
+
+<!-- Sidebar/Images -->
+<li class="list-group-item">
+  <ul class="list-group" id="links">
+    <img width="100%" class="img-thumbnail" src="images/Sidebar/sidebarA.jpg"/>
+    <img width="100%" class="img-thumbnail" src="images/Sidebar/sidebarB.png"/>
+    <img width="100%" class="img-thumbnail" src="images/Sidebar/sidebarC.jpg"/>
+    <img width="100%" class="img-thumbnail" src="images/Sidebar/sidebarD.jpg"/>
+  </ul>
+</li>
+<!-- End Sidebar/Images -->
+  </ul>
+</section>
+<!-- End Sidebar -->            </aside>
+        </div>
+    </div>
+</div>
+<!-- End Content Container -->
+
+<footer>
+   <div class="container-fluid">
+      <hr>
+      <div class="row">
+         <div class="col-xs-10">&copy; 2023 James D. Triveri
+            &middot; Powered by <a href="https://github.com/getpelican/pelican-themes/tree/master/pelican-bootstrap3" target="_blank">pelican-bootstrap3</a>,
+            <a href="http://docs.getpelican.com/" target="_blank">Pelican</a>,
+            <a href="http://getbootstrap.com" target="_blank">Bootstrap</a>         </div>
+         <div class="col-xs-2"><p class="pull-right"><i class="fa fa-arrow-up"></i> <a href="#">Back to top</a></p></div>
+      </div>
+   </div>
+</footer>
+<script src="./theme/js/jquery.min.js"></script>
+
+<!-- Include all compiled plugins (below), or include individual files as needed -->
+<script src="./theme/js/bootstrap.min.js"></script>
+
+<!-- Enable responsive features in IE8 with Respond.js (https://github.com/scottjehl/Respond) -->
+<script src="./theme/js/respond.min.js"></script>
+
+
+    <script src="./theme/js/bodypadding.js"></script>
+
+
+</body>
+</html>
