@@ -6,7 +6,6 @@ Authors: James D. Triveri
 Summary: A matrix factorization approach to linear regression
 
 
-
 This post is primarily intended to shed light on why the closed form solution to linear regression estimates is avoided in 
 statistical software packages. But we start by first by deriving the solution to the normal equations within the standard 
 multivariate regression setting.
@@ -39,8 +38,9 @@ $$
 Where $I$ represents the $p \times p$ identity matrix.
 
 The density depends on $\beta$ through the residuals. Given the observed data, the term in the exponent
-$(y_{i} - \beta^{T}x_{i})$ is maximized when the sum of squared residuals, $\mathrm{SSR} = \sum_{i=1}^{n} (y_{i} - \beta^{T}x_{i})$ is minimized. To find the optimal $\beta$, we expand the expression for the residual sum of 
-squares:
+$(y_{i} - \beta^{T}x_{i})$ is maximized when the sum of squared residuals, 
+$\mathrm{SSR} = \sum_{i=1}^{n} (y_{i} - \beta^{T}x_{i})$ is minimized. To find the 
+optimal $\beta$, we expand the expression for the residual sum of squares:
 
 $$
 \begin{align*} 
@@ -58,12 +58,13 @@ $$
 \beta = (X^{T}X)^{-1}X^{T}y.
 $$
 
-Why isn’t this expression implemented in linear model solvers directly? 
+Why isn't this expression implemented in linear model solvers directly?   
+
 
 The condition number of a matrix is the ratio of maximum-to-minimum singular values (which, for a normal matrix, is 
 the ratio of the maximum-to-minimum absolute value of eigenvalues). Essentially, the condition number tells you how 
 much solving a linear system will magnify any noise in your data. It can be thought of as a measure of amplification. 
-The smaller the condition number, the better (the “best” value being 1).
+The smaller the condition number, the better (the best value being 1).
 
 ```python
 """
@@ -100,19 +101,26 @@ print(f"Condition number of X^T*X : {c1:.8f}.")
 
 In terms of numerical precision, computing $X^{T}X$ roughly squares the condition number. As an approximation, 
 $\mathrm{log}_{10}(\mathrm{condition})$ represents the number of digits lost in a given matrix computation. So by merely 
-forming the Gram matrix, we’ve doubled the loss of precision in our final result, since 
+forming the Gram matrix, we've doubled the loss of precision in our final result, since 
 
 $$
 \mathrm{log}_{10}(\mathrm{condition}(X^{T}X)) \approx 2 \times \mathrm{log}_{10}(\mathrm{condition}(X)).
 $$
 
-If the condition number of $X$ is small, forming the Gram matrix and solving the system via $\beta = (X^{T}X)^{-1}X^{T}y$
-should be fine. But as the condition number grows, solving the normal equations becomes increasingly unstable, ultimately resulting in a solution devoid of accuracy. Since statistical software packages need to handle an incredible variety of
-potential design matrices with a wide range of condition numbers, the normal equations approach cannot be relied upon.
+If the condition number of $X$ is small, forming the Gram matrix and solving the 
+system via $\beta = (X^{T}X)^{-1}X^{T}y$ should be fine. But as the condition 
+number grows, solving the normal equations becomes increasingly unstable, ultimately 
+resulting in a solution devoid of accuracy. Since statistical software packages 
+need to handle an incredible variety of potential design matrices with a wide range 
+of condition numbers, the normal equations approach cannot be relied upon.
+
 
 ## The QR Decomposition
 
-The QR Decomposition factors a matrix $X$ into the product of an orthonormal matrix $Q$ and an upper triangular matrix $R$, $X = QR$. Because $Q$ is orthonormal, $Q^{T} = Q^{-1}$. Beginning with a version of the normal equations solution, substitute $QR$ for $X$, rearrange and arrive at:
+The QR Decomposition factors a matrix $X$ into the product of an orthonormal matrix $Q$ 
+and an upper triangular matrix $R$, $X = QR$. Because $Q$ is orthonormal, $Q^{T} = Q^{-1}$. 
+Beginning with a version of the normal equations solution, substitute $QR$ for $X$, 
+rearrange and arrive at:
 
 $$
 \begin{align*} 
@@ -125,7 +133,7 @@ R \beta &= Q^{T} y,
 \end{align*}
 $$
 
-where we’ve taken advantage of how transpose distributes over matrix products (i.e. $(AB)^{T} = B^{T}A^{T}$),
+where we've taken advantage of how transpose distributes over matrix products (i.e. $(AB)^{T} = B^{T}A^{T}$),
 and the fact that since is orthonormal, $Q^{T}Q = I$.
 
 Because $R$ is upper triangular, $\beta$ can be solved for using back substitution. A quick demonstration of 
@@ -159,17 +167,21 @@ print(f"np.allclose(B0, B1): {np.allclose(B0, B1)}")
 # np.allclose(B0, B1): True
 ```
 
-Using the QR Decomposition, we’ve eliminated the need to explicitly create the Gram matrix, and no longer need to 
-invert matrices, which is computationally expensive and has its own set of precision degradation issues.
+Using the QR Decomposition, we've eliminated the need to explicitly create the 
+Gram matrix, and no longer need to invert matrices, which is computationally expensive 
+and has its own set of precision degradation issues.
+
+
 
 ## The Singular Value Decomposition
 
-The Singular Value Decomposition is a generalization of the Eigendecomposition to any $nxp$ matrix. The
-SVD decomposes a matrix $A$ into 3 matrices ($A = U \Sigma V^{T}$):
+The Singular Value Decomposition is a generalization of the Eigendecomposition 
+to any $nxp$ matrix. The SVD decomposes a matrix $A$ into 3 matrices ($A = U \Sigma V^{T}$):
 
 - $U$ is a $n \times p$ orthogonal matrix (assuming $A$ is real); columns represent *left singular vectors*.
 - $\Sigma$ is a $p \times p$ diagonal matrix with diagonal entries representing the *singular values* of $A$.
 - $V^{T}$ is a $p \times p$ orthogonal matrix (assuming $A$ is real); rows represent *right singular vectors*.
+
 
 Beginning with the normal equations solution, replace $X$ with $U \Sigma V^{T}$ and solve for $\beta$:
 
@@ -184,9 +196,10 @@ V V^{T} \beta &= V \Sigma^{-1} U^{T} y\\
 \end{align*} 
 $$
 
-Since $\Sigma$ is a diagonal matrix, the inverse is simply the reciprocal of the diagonal elements, which doesn’t incur 
+Since $\Sigma$ is a diagonal matrix, the inverse is simply the reciprocal of the diagonal elements, which doesn't incur 
 the runtime associated with a conventional matrix inversion. In addition, $VV^{T} = I$. Note that we assume the singular
-values are strictly greater than 0. If this is not the case, the condition number would be infinite, and a well-defined solution wouldn’t exist.
+values are strictly greater than 0. If this is not the case, the condition number would be infinite, and a well-defined 
+solution wouldn't exist.
 
 Determining the estimated coefficients using SVD in Python can be accomplished as follows:
 
@@ -235,6 +248,6 @@ SVD                    |  2mn^2 + 11n^3   |
 Householder and Modified Gram-Schmidt are two approaches used in the first step of the QR Decomposition. SVD offers far 
 more stability, but comes with added runtime complexity. Other matrix decomposition methods such as LU and Cholesky can 
 be leveraged, but the QR Decomposition represents a good trade-off between runtime and numerical stability. This 
-explains its wide use in statistical software packages. Check out the excellent [A Deep Dive into how R Fits a Linear Model](http://madrury.github.io/jekyll/update/statistics/2016/07/20/lm-in-R.html) for an in-depth explanation of how the QR Decomposition is used to fit linear models in R.
-
+explains its wide use in statistical software packages. Check out the excellent [A Deep Dive into how R Fits a Linear Model](http://madrury.github.io/jekyll/update/statistics/2016/07/20/lm-in-R.html) 
+for an in-depth explanation of how the QR Decomposition is used to fit linear models in R.
 
