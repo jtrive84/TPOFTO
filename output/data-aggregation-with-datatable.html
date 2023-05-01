@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="en" prefix="og: http://ogp.me/ns# fb: https://www.facebook.com/2008/fbml">
+<head>
+    <title>Data Aggregation with data.table - The Pleasure of Finding Things Out</title>
+    <!-- Using the latest rendering mode for IE -->
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+
+
+<link rel="canonical" href="./data-aggregation-with-datatable.html">
+
+        <meta name="author" content="James D. Triveri" />
+        <meta name="keywords" content="R" />
+        <meta name="description" content="Data aggregation with data.table" />
+
+        <meta property="og:site_name" content="The Pleasure of Finding Things Out" />
+        <meta property="og:type" content="article"/>
+        <meta property="og:title" content="Data Aggregation with data.table"/>
+        <meta property="og:url" content="./data-aggregation-with-datatable.html"/>
+        <meta property="og:description" content="Data aggregation with data.table"/>
+        <meta property="article:published_time" content="2023-04-23" />
+            <meta property="article:section" content="R" />
+            <meta property="article:tag" content="R" />
+            <meta property="article:author" content="James D. Triveri" />
+
+
+
+    <!-- Bootstrap -->
+        <link rel="stylesheet" href="./theme/css/bootstrap.Yeti.min.css" type="text/css"/>
+    <link href="./theme/css/font-awesome.min.css" rel="stylesheet">
+
+    <link href="./theme/css/pygments/default.css" rel="stylesheet">
+        <link href="./theme/css/typogrify.css" rel="stylesheet">
+    <link rel="stylesheet" href="./theme/css/style.css" type="text/css"/>
+        <link href="./static/css/custom.css" rel="stylesheet">
+
+
+
+
+</head>
+<body>
+
+<div class="navbar navbar-inverse navbar-fixed-top" role="navigation">
+    <div class="container-fluid">
+        <div class="navbar-header">
+            <button type="button" class="navbar-toggle" data-toggle="collapse" data-target=".navbar-ex1-collapse">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            <a href="./" class="navbar-brand">
+The Pleasure of Finding Things Out            </a>
+        </div>
+        <div class="collapse navbar-collapse navbar-ex1-collapse">
+            <ul class="nav navbar-nav">
+                         <li><a href="./pages/about-me.html">
+                             About&nbsp;Me
+                          </a></li>
+                        <li >
+                            <a href="./category/machine-learning.html">Machine learning</a>
+                        </li>
+                        <li >
+                            <a href="./category/python.html">Python</a>
+                        </li>
+                        <li class="active">
+                            <a href="./category/r.html">R</a>
+                        </li>
+                        <li >
+                            <a href="./category/statistical-modeling.html">Statistical modeling</a>
+                        </li>
+            </ul>
+            <ul class="nav navbar-nav navbar-right">
+            </ul>
+        </div>
+        <!-- /.navbar-collapse -->
+    </div>
+</div> <!-- /.navbar -->
+
+<!-- Banner -->
+<!-- End Banner -->
+
+<!-- Content Container -->
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-sm-9">
+    <section id="content">
+        <article>
+            <header class="page-header">
+                <h1>
+                    <a href="./data-aggregation-with-datatable.html"
+                       rel="bookmark"
+                       title="Permalink to Data Aggregation with data.table">
+                        Data Aggregation with&nbsp;data.table
+                    </a>
+                </h1>
+            </header>
+            <div class="entry-content">
+                <div class="panel">
+                    <div class="panel-body">
+<footer class="post-info">
+    <span class="label label-default">Date</span>
+    <span class="published">
+        <i class="fa fa-calendar"></i><time datetime="2023-04-23T00:00:00-05:00"> 2023-04-23</time>
+    </span>
+
+
+
+
+
+<span class="label label-default">Tags</span>
+	<a href="./tag/r.html">R</a>
+    
+</footer><!-- /.post-info -->                    </div>
+                </div>
+                <h3>Prerequisites</h3>
+<p>If you don&#8217;t have it already, install the data.table library the conventional&nbsp;way:</p>
+<div class="highlight"><pre><span></span><code><span class="o">&gt;</span><span class="w"> </span><span class="nf">install.packages</span><span class="p">(</span><span class="s">&quot;data.table&quot;</span><span class="p">)</span>
+</code></pre></div>
+
+<h3>Setup</h3>
+<p>data.table is a highly optimized third-party library which improves upon R&#8217;s standard data.frame via the data.table object. 
+data.tables can be used in any scenario that accepts a data.frame, and thus can be used as a replacement for the standard 
+data.frame is all&nbsp;scenarios. </p>
+<p>Due to the highly optimized nature of data.table, aggregate operations are much faster compared with standard R builtins 
+like <code>aggregate</code>. However, the syntax takes a little getting used to. In this article, we&#8217;ll demonstrate how to perform 
+various common aggregate operations using the data.table&nbsp;library. </p>
+<h3>Data</h3>
+<p>Throughout this article, we&#8217;ll work with a simulated loss frequency&nbsp;dataset:</p>
+<div class="highlight"><pre><span></span><code><span class="nf">library</span><span class="p">(</span><span class="s">&quot;data.table&quot;</span><span class="p">)</span>
+<span class="nf">set.seed</span><span class="p">(</span><span class="m">516</span><span class="p">)</span>
+
+<span class="n">DT0</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">CJ</span><span class="p">(</span>
+<span class="w">    </span><span class="n">district</span><span class="o">=</span><span class="nf">c</span><span class="p">(</span><span class="m">1</span><span class="p">,</span><span class="m">2</span><span class="w"> </span><span class="p">,</span><span class="m">3</span><span class="w"> </span><span class="p">,</span><span class="m">4</span><span class="p">),</span><span class="w"> </span><span class="n">group</span><span class="o">=</span><span class="nf">c</span><span class="p">(</span><span class="s">&quot;A&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;B&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;C&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;D&quot;</span><span class="p">),</span><span class="w">  </span>
+<span class="w">    </span><span class="n">age</span><span class="o">=</span><span class="nf">c</span><span class="p">(</span><span class="s">&quot;&lt;25&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;25-34&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;35-49&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;&gt;50&quot;</span><span class="p">)</span>
+<span class="w">    </span><span class="p">)</span>
+<span class="n">DT0</span><span class="p">[,</span><span class="nf">`:=`</span><span class="p">(</span>
+<span class="w">    </span><span class="n">claims</span><span class="o">=</span><span class="nf">rpois</span><span class="p">(</span><span class="nf">nrow</span><span class="p">(</span><span class="n">DT</span><span class="p">),</span><span class="w"> </span><span class="m">100</span><span class="p">),</span><span class="w"> </span>
+<span class="w">    </span><span class="n">holders</span><span class="o">=</span><span class="nf">sample</span><span class="p">(</span><span class="m">1000</span><span class="o">:</span><span class="m">5000</span><span class="p">,</span><span class="w"> </span><span class="n">size</span><span class="o">=</span><span class="nf">nrow</span><span class="p">(</span><span class="n">DT</span><span class="p">),</span><span class="w"> </span><span class="n">replace</span><span class="o">=</span><span class="kc">FALSE</span><span class="p">)</span>
+<span class="w">    </span><span class="p">)]</span>
+
+<span class="c1"># Table of adjustment factors. </span>
+<span class="n">DT1</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">data.table</span><span class="p">(</span>
+<span class="w">    </span><span class="n">age</span><span class="o">=</span><span class="nf">c</span><span class="p">(</span><span class="s">&quot;&lt;25&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;25-34&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;35-49&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;&gt;50&quot;</span><span class="p">),</span>
+<span class="w">    </span><span class="n">adj</span><span class="o">=</span><span class="nf">c</span><span class="p">(</span><span class="m">1.50</span><span class="p">,</span><span class="w"> </span><span class="m">1.075</span><span class="p">,</span><span class="w"> </span><span class="n">.</span><span class="m">85</span><span class="p">,</span><span class="w"> </span><span class="n">.</span><span class="m">975</span><span class="p">),</span>
+<span class="w">    </span><span class="n">stringsAsFactors</span><span class="o">=</span><span class="kc">FALSE</span>
+<span class="w">    </span><span class="p">)</span>
+<span class="n">DT</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">DT1</span><span class="p">[</span><span class="n">DT0</span><span class="p">,</span><span class="w"> </span><span class="n">on</span><span class="o">=</span><span class="s">&quot;age&quot;</span><span class="p">]</span>
+<span class="n">DT</span><span class="p">[,</span><span class="n">claims</span><span class="o">:=</span><span class="nf">as.integer</span><span class="p">(</span><span class="n">claims</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">adj</span><span class="p">)]</span>
+<span class="n">DT</span><span class="p">[,</span><span class="n">adj</span><span class="o">:=</span><span class="kc">NULL</span><span class="p">]</span>
+</code></pre></div>
+
+<p>Taking a look at the first few records&nbsp;yields:</p>
+<div class="highlight"><pre><span></span><code>     age district group claims holders
+1: 25-34        1     A     95    4359
+2: 35-49        1     A     92    3764
+3:   &lt;25        1     A    157    4613
+4:   &gt;50        1     A    111    2529
+5: 25-34        1     B     90    2105
+6: 35-49        1     B     97    3379
+</code></pre></div>
+
+<h3>Aggregate&nbsp;Operations</h3>
+<p>Before proceeding, we should highlight data.table&#8217;s general calling convention, that when understood, can be used to 
+translate data.table expressions of arbitrary complexity into 3&nbsp;steps:</p>
+<blockquote>
+<p><strong><code>DT[i, j, by]</code></strong></p>
+</blockquote>
+<p>Which translates&nbsp;to:</p>
+<blockquote>
+<p>Take <strong><code>DT</code></strong>, subset rows using <strong><code>i</code></strong>, then calculate <strong><code>j</code></strong> grouped by <strong><code>by</code></strong>.</p>
+</blockquote>
+<p>This can be represented in a diagram as&nbsp;follows:</p>
+<div class="highlight"><pre><span></span><code><span class="n">DT</span><span class="p">[</span><span class="w"> </span><span class="n">i</span><span class="p">,</span><span class="w"> </span><span class="n">j</span><span class="p">,</span><span class="w"> </span><span class="n">by</span><span class="w"> </span><span class="p">]</span><span class="w"> </span><span class="err">#</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">extra</span><span class="w"> </span><span class="n">arguments</span>
+<span class="w">    </span><span class="o">|</span><span class="w">  </span><span class="o">|</span><span class="w">  </span><span class="o">|</span>
+<span class="w">    </span><span class="o">|</span><span class="w">  </span><span class="o">|</span><span class="w">   </span><span class="o">-------&gt;</span><span class="w"> </span><span class="n">grouped</span><span class="w"> </span><span class="n">by</span><span class="w"> </span><span class="n">what</span><span class="o">?</span>
+<span class="w">    </span><span class="o">|</span><span class="w">   </span><span class="o">-------&gt;</span><span class="w"> </span><span class="n">what</span><span class="w"> </span><span class="n">to</span><span class="w"> </span><span class="n">do</span><span class="o">?</span>
+<span class="w">     </span><span class="o">---&gt;</span><span class="w"> </span><span class="n">on</span><span class="w"> </span><span class="nf">which</span><span class="w"> </span><span class="n">rows</span><span class="o">?</span>
+</code></pre></div>
+
+<p>This may not be immediately clear, but should start to make sense as we look at&nbsp;examples. </p>
+<h3>Returning a Single Value from a Single&nbsp;Column</h3>
+<p>Referring to <code>DT</code> from above, the total number of policyholders can be determined&nbsp;as:</p>
+<div class="highlight"><pre><span></span><code>&gt; DT[,sum(holders)]
+[1] 190885
+</code></pre></div>
+
+<p>To compute the total number of policyholders and claims,&nbsp;run:</p>
+<div class="highlight"><pre><span></span><code>&gt; DT[,.(holders=sum(holders), claims=sum(claims))]
+   holders claims
+1:  190885   7018
+</code></pre></div>
+
+<p>This returns a 1-row data.table with the total number of holders and claims. To change fieldnames in the resulting table, 
+change the name on the left-hand side for the desired field within the <code>sum</code> expression:</p>
+<div class="highlight"><pre><span></span><code>&gt; DT[,.(total_holders=sum(holders), total_claims=sum(claims))]
+   total_holders total_claims
+1:        190885         7018 
+</code></pre></div>
+
+<h3>Assigning an Aggregate to Each Row of an Existing&nbsp;Table</h3>
+<p>It may be necessary to assign an aggregate value from a table to each record in the same table. This can be accomplished 
+using the <code>:=</code> operator. Note that when computing aggregate operations that utilize <code>:=</code>, the number of rows in the 
+resulting table will not change. Next we assign the total number of claims to each row in <span class="caps">DT</span> in a column identified as&nbsp;total_claims:</p>
+<div class="highlight"><pre><span></span><code><span class="o">&gt;</span><span class="w"> </span><span class="n">DT</span><span class="p">[,</span><span class="n">total_claims</span><span class="o">:=</span><span class="nf">sum</span><span class="p">(</span><span class="n">claims</span><span class="p">)]</span>
+<span class="o">&gt;</span><span class="w"> </span><span class="nf">head</span><span class="p">(</span><span class="n">DT</span><span class="p">)</span>
+<span class="w">     </span><span class="n">age</span><span class="w"> </span><span class="n">district</span><span class="w"> </span><span class="n">group</span><span class="w"> </span><span class="n">claims</span><span class="w"> </span><span class="n">holders</span><span class="w"> </span><span class="n">total_claims</span>
+<span class="m">1</span><span class="o">:</span><span class="w"> </span><span class="m">25-34</span><span class="w">        </span><span class="m">1</span><span class="w">     </span><span class="n">A</span><span class="w">     </span><span class="m">95</span><span class="w">    </span><span class="m">4359</span><span class="w">         </span><span class="m">7018</span>
+<span class="m">2</span><span class="o">:</span><span class="w"> </span><span class="m">35-49</span><span class="w">        </span><span class="m">1</span><span class="w">     </span><span class="n">A</span><span class="w">     </span><span class="m">92</span><span class="w">    </span><span class="m">3764</span><span class="w">         </span><span class="m">7018</span>
+<span class="m">3</span><span class="o">:</span><span class="w">   </span><span class="o">&lt;</span><span class="m">25</span><span class="w">        </span><span class="m">1</span><span class="w">     </span><span class="n">A</span><span class="w">    </span><span class="m">157</span><span class="w">    </span><span class="m">4613</span><span class="w">         </span><span class="m">7018</span>
+<span class="m">4</span><span class="o">:</span><span class="w">   </span><span class="o">&gt;</span><span class="m">50</span><span class="w">        </span><span class="m">1</span><span class="w">     </span><span class="n">A</span><span class="w">    </span><span class="m">111</span><span class="w">    </span><span class="m">2529</span><span class="w">         </span><span class="m">7018</span>
+<span class="m">5</span><span class="o">:</span><span class="w"> </span><span class="m">25-34</span><span class="w">        </span><span class="m">1</span><span class="w">     </span><span class="n">B</span><span class="w">     </span><span class="m">90</span><span class="w">    </span><span class="m">2105</span><span class="w">         </span><span class="m">7018</span>
+<span class="m">6</span><span class="o">:</span><span class="w"> </span><span class="m">35-49</span><span class="w">        </span><span class="m">1</span><span class="w">     </span><span class="n">B</span><span class="w">     </span><span class="m">97</span><span class="w">    </span><span class="m">3379</span><span class="w">         </span><span class="m">7018</span>
+</code></pre></div>
+
+<p>If we want to aggregate two or more columns, it is necessary to use a slight variation of the <code>:=</code> operator. Next we 
+include total_claims and&nbsp;total_holders:</p>
+<div class="highlight"><pre><span></span><code><span class="o">&gt;</span><span class="w"> </span><span class="n">DT</span><span class="p">[,</span><span class="w"> </span><span class="s">&quot;:=&quot;</span><span class="w"> </span><span class="p">(</span><span class="n">total_claims</span><span class="o">=</span><span class="nf">sum</span><span class="p">(</span><span class="n">claims</span><span class="p">),</span><span class="w"> </span><span class="n">total_holders</span><span class="o">=</span><span class="nf">sum</span><span class="p">(</span><span class="n">holders</span><span class="p">))]</span>
+<span class="o">&gt;</span><span class="w"> </span><span class="nf">head</span><span class="p">(</span><span class="n">DT</span><span class="p">)</span>
+<span class="w">     </span><span class="n">age</span><span class="w"> </span><span class="n">district</span><span class="w"> </span><span class="n">group</span><span class="w"> </span><span class="n">claims</span><span class="w"> </span><span class="n">holders</span><span class="w"> </span><span class="n">total_claims</span><span class="w"> </span><span class="n">total_holders</span>
+<span class="m">1</span><span class="o">:</span><span class="w"> </span><span class="m">25-34</span><span class="w">        </span><span class="m">1</span><span class="w">     </span><span class="n">A</span><span class="w">     </span><span class="m">95</span><span class="w">    </span><span class="m">4359</span><span class="w">         </span><span class="m">7018</span><span class="w">        </span><span class="m">190885</span>
+<span class="m">2</span><span class="o">:</span><span class="w"> </span><span class="m">35-49</span><span class="w">        </span><span class="m">1</span><span class="w">     </span><span class="n">A</span><span class="w">     </span><span class="m">92</span><span class="w">    </span><span class="m">3764</span><span class="w">         </span><span class="m">7018</span><span class="w">        </span><span class="m">190885</span>
+<span class="m">3</span><span class="o">:</span><span class="w">   </span><span class="o">&lt;</span><span class="m">25</span><span class="w">        </span><span class="m">1</span><span class="w">     </span><span class="n">A</span><span class="w">    </span><span class="m">157</span><span class="w">    </span><span class="m">4613</span><span class="w">         </span><span class="m">7018</span><span class="w">        </span><span class="m">190885</span>
+<span class="m">4</span><span class="o">:</span><span class="w">   </span><span class="o">&gt;</span><span class="m">50</span><span class="w">        </span><span class="m">1</span><span class="w">     </span><span class="n">A</span><span class="w">    </span><span class="m">111</span><span class="w">    </span><span class="m">2529</span><span class="w">         </span><span class="m">7018</span><span class="w">        </span><span class="m">190885</span>
+<span class="m">5</span><span class="o">:</span><span class="w"> </span><span class="m">25-34</span><span class="w">        </span><span class="m">1</span><span class="w">     </span><span class="n">B</span><span class="w">     </span><span class="m">90</span><span class="w">    </span><span class="m">2105</span><span class="w">         </span><span class="m">7018</span><span class="w">        </span><span class="m">190885</span>
+<span class="m">6</span><span class="o">:</span><span class="w"> </span><span class="m">35-49</span><span class="w">        </span><span class="m">1</span><span class="w">     </span><span class="n">B</span><span class="w">     </span><span class="m">97</span><span class="w">    </span><span class="m">3379</span><span class="w">         </span><span class="m">7018</span><span class="w">        </span><span class="m">190885</span>
+<span class="o">&gt;</span><span class="w"> </span>
+</code></pre></div>
+
+<p>This differs from the standard syntax in two ways: First, the <code>:=</code> operator is specified upfront, and is surrounded by 
+quotes (<code>":="</code>). Second, when specifying the columns to aggregate, we use <code>=</code>, not <code>:=</code>, since this is already specified 
+upfront. It is also possible to use the modified syntax for adding a single column. The following expressions are&nbsp;identical:</p>
+<div class="highlight"><pre><span></span><code><span class="n">DT</span><span class="p">[,</span><span class="n">total_claims</span><span class="o">:=</span><span class="nf">sum</span><span class="p">(</span><span class="n">claims</span><span class="p">)]</span>
+
+<span class="n">DT</span><span class="p">[,</span><span class="s">&quot;:=&quot;</span><span class="w"> </span><span class="p">(</span><span class="n">total_claims</span><span class="o">=</span><span class="nf">sum</span><span class="p">(</span><span class="n">claims</span><span class="p">))]</span>
+</code></pre></div>
+
+<h3>Aggregate Operations by&nbsp;Group</h3>
+<p>To perform aggregate operations by group, the syntax introduced in the previous examples remains unchanged: The only 
+difference is the addition of the <code>by</code> keyword.</p>
+<p>In <span class="caps">DT</span>, there are four distinct levels in each of age, district and&nbsp;group:</p>
+<div class="highlight"><pre><span></span><code>&gt; table(DT$age)
+
+  &lt;25   &gt;50 25-34 35-49 
+   16    16    16    16 
+</code></pre></div>
+
+<div class="highlight"><pre><span></span><code>&gt; table(DT$district)
+
+ 1  2  3  4 
+16 16 16 16 
+</code></pre></div>
+
+<div class="highlight"><pre><span></span><code>&gt; table(DT$district)
+
+ A  B  C  D 
+16 16 16 16  
+</code></pre></div>
+
+<p>To calculate the total number of claims by each level in age,&nbsp;run:</p>
+<div class="highlight"><pre><span></span><code><span class="o">&gt;</span><span class="w"> </span><span class="n">DT</span><span class="p">[,</span><span class="nf">sum</span><span class="p">(</span><span class="n">claims</span><span class="p">),</span><span class="w"> </span><span class="n">by</span><span class="o">=</span><span class="n">age</span><span class="p">]</span>
+<span class="w">     </span><span class="n">age</span><span class="w">   </span><span class="n">V1</span>
+<span class="m">1</span><span class="o">:</span><span class="w"> </span><span class="m">25-34</span><span class="w"> </span><span class="m">1643</span>
+<span class="m">2</span><span class="o">:</span><span class="w"> </span><span class="m">35-49</span><span class="w"> </span><span class="m">1363</span>
+<span class="m">3</span><span class="o">:</span><span class="w">   </span><span class="o">&lt;</span><span class="m">25</span><span class="w"> </span><span class="m">2410</span>
+<span class="m">4</span><span class="o">:</span><span class="w">   </span><span class="o">&gt;</span><span class="m">50</span><span class="w"> </span><span class="m">1602</span>
+</code></pre></div>
+
+<p>This returns total number of claims in a single unnamed column (identified as V1 by default). In order to preserve 
+column names, we use the syntax from before, updated with <code>by</code>. In what follows, we compute the total number of claims and 
+policyholders by age while preserving column&nbsp;names:</p>
+<div class="highlight"><pre><span></span><code><span class="o">&gt;</span><span class="w"> </span><span class="n">DT</span><span class="p">[,</span><span class="nf">.</span><span class="p">(</span><span class="n">claims</span><span class="o">=</span><span class="nf">sum</span><span class="p">(</span><span class="n">claims</span><span class="p">),</span><span class="w"> </span><span class="n">holders</span><span class="o">=</span><span class="nf">sum</span><span class="p">(</span><span class="n">holders</span><span class="p">)),</span><span class="w"> </span><span class="n">by</span><span class="o">=</span><span class="s">&quot;age&quot;</span><span class="p">]</span>
+<span class="w">     </span><span class="n">age</span><span class="w"> </span><span class="n">claims</span><span class="w"> </span><span class="n">holders</span>
+<span class="m">1</span><span class="o">:</span><span class="w"> </span><span class="m">25-34</span><span class="w">   </span><span class="m">1643</span><span class="w">   </span><span class="m">42109</span>
+<span class="m">2</span><span class="o">:</span><span class="w"> </span><span class="m">35-49</span><span class="w">   </span><span class="m">1363</span><span class="w">   </span><span class="m">52062</span>
+<span class="m">3</span><span class="o">:</span><span class="w">   </span><span class="o">&lt;</span><span class="m">25</span><span class="w">   </span><span class="m">2410</span><span class="w">   </span><span class="m">48932</span>
+<span class="m">4</span><span class="o">:</span><span class="w">   </span><span class="o">&gt;</span><span class="m">50</span><span class="w">   </span><span class="m">1602</span><span class="w">   </span><span class="m">47782</span>
+</code></pre></div>
+
+<p>When it is necessary to aggregate by two or more columns, we supply a vector of column names over which to aggregate. To 
+determine the total number of claims and policyholders by age and district,&nbsp;do:</p>
+<div class="highlight"><pre><span></span><code><span class="o">&gt;</span><span class="w"> </span><span class="n">DT</span><span class="p">[,</span><span class="nf">.</span><span class="p">(</span><span class="n">claims</span><span class="o">=</span><span class="nf">sum</span><span class="p">(</span><span class="n">claims</span><span class="p">),</span><span class="w"> </span><span class="n">holders</span><span class="o">=</span><span class="nf">sum</span><span class="p">(</span><span class="n">holders</span><span class="p">)),</span><span class="w"> </span><span class="n">by</span><span class="o">=</span><span class="nf">c</span><span class="p">(</span><span class="s">&quot;age&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;district&quot;</span><span class="p">)]</span>
+<span class="w">      </span><span class="n">age</span><span class="w"> </span><span class="n">district</span><span class="w"> </span><span class="n">claims</span><span class="w"> </span><span class="n">holders</span>
+<span class="w"> </span><span class="m">1</span><span class="o">:</span><span class="w"> </span><span class="m">25-34</span><span class="w">        </span><span class="m">1</span><span class="w">    </span><span class="m">384</span><span class="w">   </span><span class="m">10080</span>
+<span class="w"> </span><span class="m">2</span><span class="o">:</span><span class="w"> </span><span class="m">35-49</span><span class="w">        </span><span class="m">1</span><span class="w">    </span><span class="m">345</span><span class="w">   </span><span class="m">13576</span>
+<span class="w"> </span><span class="m">3</span><span class="o">:</span><span class="w">   </span><span class="o">&lt;</span><span class="m">25</span><span class="w">        </span><span class="m">1</span><span class="w">    </span><span class="m">649</span><span class="w">   </span><span class="m">13665</span>
+<span class="w"> </span><span class="m">4</span><span class="o">:</span><span class="w">   </span><span class="o">&gt;</span><span class="m">50</span><span class="w">        </span><span class="m">1</span><span class="w">    </span><span class="m">423</span><span class="w">   </span><span class="m">10747</span>
+<span class="w"> </span><span class="m">5</span><span class="o">:</span><span class="w"> </span><span class="m">25-34</span><span class="w">        </span><span class="m">2</span><span class="w">    </span><span class="m">422</span><span class="w">   </span><span class="m">12495</span>
+<span class="w"> </span><span class="m">6</span><span class="o">:</span><span class="w"> </span><span class="m">35-49</span><span class="w">        </span><span class="m">2</span><span class="w">    </span><span class="m">343</span><span class="w">   </span><span class="m">13462</span>
+<span class="w"> </span><span class="m">7</span><span class="o">:</span><span class="w">   </span><span class="o">&lt;</span><span class="m">25</span><span class="w">        </span><span class="m">2</span><span class="w">    </span><span class="m">587</span><span class="w">   </span><span class="m">11348</span>
+<span class="w"> </span><span class="m">8</span><span class="o">:</span><span class="w">   </span><span class="o">&gt;</span><span class="m">50</span><span class="w">        </span><span class="m">2</span><span class="w">    </span><span class="m">424</span><span class="w">   </span><span class="m">11888</span>
+<span class="w"> </span><span class="m">9</span><span class="o">:</span><span class="w"> </span><span class="m">25-34</span><span class="w">        </span><span class="m">3</span><span class="w">    </span><span class="m">420</span><span class="w">    </span><span class="m">8101</span>
+<span class="m">10</span><span class="o">:</span><span class="w"> </span><span class="m">35-49</span><span class="w">        </span><span class="m">3</span><span class="w">    </span><span class="m">330</span><span class="w">   </span><span class="m">14933</span>
+<span class="m">11</span><span class="o">:</span><span class="w">   </span><span class="o">&lt;</span><span class="m">25</span><span class="w">        </span><span class="m">3</span><span class="w">    </span><span class="m">582</span><span class="w">   </span><span class="m">13167</span>
+<span class="m">12</span><span class="o">:</span><span class="w">   </span><span class="o">&gt;</span><span class="m">50</span><span class="w">        </span><span class="m">3</span><span class="w">    </span><span class="m">385</span><span class="w">   </span><span class="m">13730</span>
+<span class="m">13</span><span class="o">:</span><span class="w"> </span><span class="m">25-34</span><span class="w">        </span><span class="m">4</span><span class="w">    </span><span class="m">417</span><span class="w">   </span><span class="m">11433</span>
+<span class="m">14</span><span class="o">:</span><span class="w"> </span><span class="m">35-49</span><span class="w">        </span><span class="m">4</span><span class="w">    </span><span class="m">345</span><span class="w">   </span><span class="m">10091</span>
+<span class="m">15</span><span class="o">:</span><span class="w">   </span><span class="o">&lt;</span><span class="m">25</span><span class="w">        </span><span class="m">4</span><span class="w">    </span><span class="m">592</span><span class="w">   </span><span class="m">10752</span>
+<span class="m">16</span><span class="o">:</span><span class="w">   </span><span class="o">&gt;</span><span class="m">50</span><span class="w">        </span><span class="m">4</span><span class="w">    </span><span class="m">370</span><span class="w">   </span><span class="m">11417</span>
+</code></pre></div>
+
+<h3>Assigning Aggregate Values by Group to Each Row in Existing&nbsp;Table</h3>
+<p>As before, aggrergate operations by group can be assigned to an existing table. Next we assign the average number of 
+claims and policyholders by age to each record in the original dataset (note that I&#8217;ve removed total_claims and 
+total_holders to simplify viewing the tables. It is fine to keep them in if you&#8217;re following&nbsp;along):</p>
+<div class="highlight"><pre><span></span><code><span class="o">&gt;</span><span class="w"> </span><span class="nv">DT</span><span class="p">[,</span><span class="s">&quot;:=&quot;</span><span class="p">(</span><span class="nv">avg_nbr_claims</span><span class="o">=</span><span class="nf">mean</span><span class="p">(</span><span class="nv">claims</span><span class="p">),</span><span class="w"> </span><span class="nv">avg_nbr_holders</span><span class="o">=</span><span class="nf">mean</span><span class="p">(</span><span class="nv">holders</span><span class="p">)),</span><span class="w"> </span><span class="nv">by</span><span class="o">=</span><span class="s">&quot;age&quot;</span><span class="p">]</span>
+<span class="o">&gt;</span><span class="w"> </span><span class="nf">head</span><span class="p">(</span><span class="nv">DT</span><span class="p">)</span>
+<span class="w">     </span><span class="nv">age</span><span class="w"> </span><span class="nv">district</span><span class="w"> </span><span class="nv">group</span><span class="w"> </span><span class="nv">claims</span><span class="w"> </span><span class="nv">holders</span><span class="w"> </span><span class="nv">avg_nbr_claims</span><span class="w"> </span><span class="nv">avg_nbr_holders</span>
+<span class="mi">1</span><span class="o">:</span><span class="w"> </span><span class="mi">25</span><span class="o">-</span><span class="mi">34</span><span class="w">        </span><span class="mi">1</span><span class="w">     </span><span class="nv">A</span><span class="w">     </span><span class="mi">95</span><span class="w">    </span><span class="mi">4359</span><span class="w">       </span><span class="mf">102.6875</span><span class="w">        </span><span class="mf">2631.812</span>
+<span class="mi">2</span><span class="o">:</span><span class="w"> </span><span class="mi">35</span><span class="o">-</span><span class="mi">49</span><span class="w">        </span><span class="mi">1</span><span class="w">     </span><span class="nv">A</span><span class="w">     </span><span class="mi">92</span><span class="w">    </span><span class="mi">3764</span><span class="w">        </span><span class="mf">85.1875</span><span class="w">        </span><span class="mf">3253.875</span>
+<span class="mi">3</span><span class="o">:</span><span class="w">   </span><span class="o">&lt;</span><span class="mi">25</span><span class="w">        </span><span class="mi">1</span><span class="w">     </span><span class="nv">A</span><span class="w">    </span><span class="mi">157</span><span class="w">    </span><span class="mi">4613</span><span class="w">       </span><span class="mf">150.6250</span><span class="w">        </span><span class="mf">3058.250</span>
+<span class="mi">4</span><span class="o">:</span><span class="w">   </span><span class="o">&gt;</span><span class="mi">50</span><span class="w">        </span><span class="mi">1</span><span class="w">     </span><span class="nv">A</span><span class="w">    </span><span class="mi">111</span><span class="w">    </span><span class="mi">2529</span><span class="w">       </span><span class="mf">100.1250</span><span class="w">        </span><span class="mf">2986.375</span>
+<span class="mi">5</span><span class="o">:</span><span class="w"> </span><span class="mi">25</span><span class="o">-</span><span class="mi">34</span><span class="w">        </span><span class="mi">1</span><span class="w">     </span><span class="nv">B</span><span class="w">     </span><span class="mi">90</span><span class="w">    </span><span class="mi">2105</span><span class="w">       </span><span class="mf">102.6875</span><span class="w">        </span><span class="mf">2631.812</span>
+<span class="mi">6</span><span class="o">:</span><span class="w"> </span><span class="mi">35</span><span class="o">-</span><span class="mi">49</span><span class="w">        </span><span class="mi">1</span><span class="w">     </span><span class="nv">B</span><span class="w">     </span><span class="mi">97</span><span class="w">    </span><span class="mi">3379</span><span class="w">        </span><span class="mf">85.1875</span><span class="w">        </span><span class="mf">3253.875</span>
+</code></pre></div>
+
+<p>The average number of claims and policyholders by district and group can be computed&nbsp;as:</p>
+<div class="highlight"><pre><span></span><code><span class="o">&gt;</span><span class="w"> </span><span class="nf">head</span><span class="p">(</span><span class="n">DT</span><span class="p">,</span><span class="w"> </span><span class="m">25</span><span class="p">)</span>
+<span class="w">      </span><span class="n">age</span><span class="w"> </span><span class="n">district</span><span class="w"> </span><span class="n">group</span><span class="w"> </span><span class="n">claims</span><span class="w"> </span><span class="n">holders</span><span class="w"> </span><span class="n">avg_nbr_claims</span><span class="w"> </span><span class="n">avg_nbr_holders</span>
+<span class="w"> </span><span class="m">1</span><span class="o">:</span><span class="w"> </span><span class="m">25-34</span><span class="w">        </span><span class="m">1</span><span class="w">     </span><span class="n">A</span><span class="w">     </span><span class="m">95</span><span class="w">    </span><span class="m">4359</span><span class="w">         </span><span class="m">113.75</span><span class="w">         </span><span class="m">3816.25</span>
+<span class="w"> </span><span class="m">2</span><span class="o">:</span><span class="w"> </span><span class="m">35-49</span><span class="w">        </span><span class="m">1</span><span class="w">     </span><span class="n">A</span><span class="w">     </span><span class="m">92</span><span class="w">    </span><span class="m">3764</span><span class="w">         </span><span class="m">113.75</span><span class="w">         </span><span class="m">3816.25</span>
+<span class="w"> </span><span class="m">3</span><span class="o">:</span><span class="w">   </span><span class="o">&lt;</span><span class="m">25</span><span class="w">        </span><span class="m">1</span><span class="w">     </span><span class="n">A</span><span class="w">    </span><span class="m">157</span><span class="w">    </span><span class="m">4613</span><span class="w">         </span><span class="m">113.75</span><span class="w">         </span><span class="m">3816.25</span>
+<span class="w"> </span><span class="m">4</span><span class="o">:</span><span class="w">   </span><span class="o">&gt;</span><span class="m">50</span><span class="w">        </span><span class="m">1</span><span class="w">     </span><span class="n">A</span><span class="w">    </span><span class="m">111</span><span class="w">    </span><span class="m">2529</span><span class="w">         </span><span class="m">113.75</span><span class="w">         </span><span class="m">3816.25</span>
+<span class="w"> </span><span class="m">5</span><span class="o">:</span><span class="w"> </span><span class="m">25-34</span><span class="w">        </span><span class="m">1</span><span class="w">     </span><span class="n">B</span><span class="w">     </span><span class="m">90</span><span class="w">    </span><span class="m">2105</span><span class="w">         </span><span class="m">112.75</span><span class="w">         </span><span class="m">2277.50</span>
+<span class="w"> </span><span class="m">6</span><span class="o">:</span><span class="w"> </span><span class="m">35-49</span><span class="w">        </span><span class="m">1</span><span class="w">     </span><span class="n">B</span><span class="w">     </span><span class="m">97</span><span class="w">    </span><span class="m">3379</span><span class="w">         </span><span class="m">112.75</span><span class="w">         </span><span class="m">2277.50</span>
+<span class="w"> </span><span class="m">7</span><span class="o">:</span><span class="w">   </span><span class="o">&lt;</span><span class="m">25</span><span class="w">        </span><span class="m">1</span><span class="w">     </span><span class="n">B</span><span class="w">    </span><span class="m">160</span><span class="w">    </span><span class="m">1359</span><span class="w">         </span><span class="m">112.75</span><span class="w">         </span><span class="m">2277.50</span>
+<span class="w"> </span><span class="m">8</span><span class="o">:</span><span class="w">   </span><span class="o">&gt;</span><span class="m">50</span><span class="w">        </span><span class="m">1</span><span class="w">     </span><span class="n">B</span><span class="w">    </span><span class="m">104</span><span class="w">    </span><span class="m">2267</span><span class="w">         </span><span class="m">112.75</span><span class="w">         </span><span class="m">2277.50</span>
+<span class="w"> </span><span class="m">9</span><span class="o">:</span><span class="w"> </span><span class="m">25-34</span><span class="w">        </span><span class="m">1</span><span class="w">     </span><span class="n">C</span><span class="w">     </span><span class="m">92</span><span class="w">    </span><span class="m">1942</span><span class="w">         </span><span class="m">111.75</span><span class="w">         </span><span class="m">2598.25</span>
+<span class="m">10</span><span class="o">:</span><span class="w"> </span><span class="m">35-49</span><span class="w">        </span><span class="m">1</span><span class="w">     </span><span class="n">C</span><span class="w">     </span><span class="m">68</span><span class="w">    </span><span class="m">2765</span><span class="w">         </span><span class="m">111.75</span><span class="w">         </span><span class="m">2598.25</span>
+<span class="m">11</span><span class="o">:</span><span class="w">   </span><span class="o">&lt;</span><span class="m">25</span><span class="w">        </span><span class="m">1</span><span class="w">     </span><span class="n">C</span><span class="w">    </span><span class="m">178</span><span class="w">    </span><span class="m">4626</span><span class="w">         </span><span class="m">111.75</span><span class="w">         </span><span class="m">2598.25</span>
+<span class="m">12</span><span class="o">:</span><span class="w">   </span><span class="o">&gt;</span><span class="m">50</span><span class="w">        </span><span class="m">1</span><span class="w">     </span><span class="n">C</span><span class="w">    </span><span class="m">109</span><span class="w">    </span><span class="m">1060</span><span class="w">         </span><span class="m">111.75</span><span class="w">         </span><span class="m">2598.25</span>
+<span class="m">13</span><span class="o">:</span><span class="w"> </span><span class="m">25-34</span><span class="w">        </span><span class="m">1</span><span class="w">     </span><span class="n">D</span><span class="w">    </span><span class="m">107</span><span class="w">    </span><span class="m">1674</span><span class="w">         </span><span class="m">112.00</span><span class="w">         </span><span class="m">3325.00</span>
+<span class="m">14</span><span class="o">:</span><span class="w"> </span><span class="m">35-49</span><span class="w">        </span><span class="m">1</span><span class="w">     </span><span class="n">D</span><span class="w">     </span><span class="m">88</span><span class="w">    </span><span class="m">3668</span><span class="w">         </span><span class="m">112.00</span><span class="w">         </span><span class="m">3325.00</span>
+<span class="m">15</span><span class="o">:</span><span class="w">   </span><span class="o">&lt;</span><span class="m">25</span><span class="w">        </span><span class="m">1</span><span class="w">     </span><span class="n">D</span><span class="w">    </span><span class="m">154</span><span class="w">    </span><span class="m">3067</span><span class="w">         </span><span class="m">112.00</span><span class="w">         </span><span class="m">3325.00</span>
+<span class="m">16</span><span class="o">:</span><span class="w">   </span><span class="o">&gt;</span><span class="m">50</span><span class="w">        </span><span class="m">1</span><span class="w">     </span><span class="n">D</span><span class="w">     </span><span class="m">99</span><span class="w">    </span><span class="m">4891</span><span class="w">         </span><span class="m">112.00</span><span class="w">         </span><span class="m">3325.00</span>
+<span class="m">17</span><span class="o">:</span><span class="w"> </span><span class="m">25-34</span><span class="w">        </span><span class="m">2</span><span class="w">     </span><span class="n">A</span><span class="w">     </span><span class="m">96</span><span class="w">    </span><span class="m">4765</span><span class="w">         </span><span class="m">111.75</span><span class="w">         </span><span class="m">2748.75</span>
+<span class="m">18</span><span class="o">:</span><span class="w"> </span><span class="m">35-49</span><span class="w">        </span><span class="m">2</span><span class="w">     </span><span class="n">A</span><span class="w">     </span><span class="m">90</span><span class="w">    </span><span class="m">1526</span><span class="w">         </span><span class="m">111.75</span><span class="w">         </span><span class="m">2748.75</span>
+<span class="m">19</span><span class="o">:</span><span class="w">   </span><span class="o">&lt;</span><span class="m">25</span><span class="w">        </span><span class="m">2</span><span class="w">     </span><span class="n">A</span><span class="w">    </span><span class="m">144</span><span class="w">    </span><span class="m">2877</span><span class="w">         </span><span class="m">111.75</span><span class="w">         </span><span class="m">2748.75</span>
+<span class="m">20</span><span class="o">:</span><span class="w">   </span><span class="o">&gt;</span><span class="m">50</span><span class="w">        </span><span class="m">2</span><span class="w">     </span><span class="n">A</span><span class="w">    </span><span class="m">117</span><span class="w">    </span><span class="m">1827</span><span class="w">         </span><span class="m">111.75</span><span class="w">         </span><span class="m">2748.75</span>
+<span class="m">21</span><span class="o">:</span><span class="w"> </span><span class="m">25-34</span><span class="w">        </span><span class="m">2</span><span class="w">     </span><span class="n">B</span><span class="w">    </span><span class="m">118</span><span class="w">    </span><span class="m">2059</span><span class="w">         </span><span class="m">117.75</span><span class="w">         </span><span class="m">2778.00</span>
+<span class="m">22</span><span class="o">:</span><span class="w"> </span><span class="m">35-49</span><span class="w">        </span><span class="m">2</span><span class="w">     </span><span class="n">B</span><span class="w">     </span><span class="m">89</span><span class="w">    </span><span class="m">3323</span><span class="w">         </span><span class="m">117.75</span><span class="w">         </span><span class="m">2778.00</span>
+<span class="m">23</span><span class="o">:</span><span class="w">   </span><span class="o">&lt;</span><span class="m">25</span><span class="w">        </span><span class="m">2</span><span class="w">     </span><span class="n">B</span><span class="w">    </span><span class="m">148</span><span class="w">    </span><span class="m">2687</span><span class="w">         </span><span class="m">117.75</span><span class="w">         </span><span class="m">2778.00</span>
+<span class="m">24</span><span class="o">:</span><span class="w">   </span><span class="o">&gt;</span><span class="m">50</span><span class="w">        </span><span class="m">2</span><span class="w">     </span><span class="n">B</span><span class="w">    </span><span class="m">116</span><span class="w">    </span><span class="m">3043</span><span class="w">         </span><span class="m">117.75</span><span class="w">         </span><span class="m">2778.00</span>
+<span class="m">25</span><span class="o">:</span><span class="w"> </span><span class="m">25-34</span><span class="w">        </span><span class="m">2</span><span class="w">     </span><span class="n">C</span><span class="w">    </span><span class="m">105</span><span class="w">    </span><span class="m">3863</span><span class="w">         </span><span class="m">110.50</span><span class="w">         </span><span class="m">3931.00</span>
+<span class="w">      </span><span class="n">age</span><span class="w"> </span><span class="n">district</span><span class="w"> </span><span class="n">group</span><span class="w"> </span><span class="n">claims</span><span class="w"> </span><span class="n">holders</span><span class="w"> </span><span class="n">avg_nbr_claims</span><span class="w"> </span><span class="n">avg_nbr_holders</span>
+</code></pre></div>
+
+<h3>Alternative Aggregation&nbsp;Specification</h3>
+<p>I will briefly discuss an alternative aggregation approach that greatly simplifies performing aggregate operations on large&nbsp;tables. </p>
+<p>It&#8217;s hard to visualize with our example, but imagine having a table with 10&#8217;s or 100&#8217;s of columns. Performing aggregate 
+operations as demonstrated would quickly become untenable. To address this, we can take advantage of R&#8217;s <em>special symbols</em>.
+We use <code>.SD</code> as a placeholder for the columns to aggregate, then pass a vector of these column names to 
+<code>.SDcols</code>. <code>.SD</code> by default gets assigned all columns except the columns mentioned in <code>by=</code>. For example, aggregating 
+claims and holders by age and district can be accomplished as&nbsp;follows:</p>
+<div class="highlight"><pre><span></span><code><span class="o">&gt;</span><span class="w"> </span><span class="n">aggColumns</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">c</span><span class="p">(</span><span class="s">&quot;claims&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;holders&quot;</span><span class="p">)</span>
+<span class="o">&gt;</span><span class="w"> </span><span class="n">keyColumns</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">c</span><span class="p">(</span><span class="s">&quot;age&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;district&quot;</span><span class="p">)</span>
+<span class="o">&gt;</span><span class="w"> </span><span class="n">DT</span><span class="p">[,</span><span class="nf">lapply</span><span class="p">(</span><span class="n">.SD</span><span class="p">,</span><span class="w"> </span><span class="n">sum</span><span class="p">,</span><span class="w"> </span><span class="n">na.rm</span><span class="o">=</span><span class="kc">TRUE</span><span class="p">),</span><span class="w"> </span><span class="n">by</span><span class="o">=</span><span class="n">keyColumns</span><span class="p">,</span><span class="w"> </span><span class="n">.SDcols</span><span class="o">=</span><span class="n">aggColumns</span><span class="p">]</span>
+<span class="w">      </span><span class="n">age</span><span class="w"> </span><span class="n">district</span><span class="w"> </span><span class="n">claims</span><span class="w"> </span><span class="n">holders</span>
+<span class="w"> </span><span class="m">1</span><span class="o">:</span><span class="w"> </span><span class="m">25-34</span><span class="w">        </span><span class="m">1</span><span class="w">    </span><span class="m">384</span><span class="w">   </span><span class="m">10080</span>
+<span class="w"> </span><span class="m">2</span><span class="o">:</span><span class="w"> </span><span class="m">35-49</span><span class="w">        </span><span class="m">1</span><span class="w">    </span><span class="m">345</span><span class="w">   </span><span class="m">13576</span>
+<span class="w"> </span><span class="m">3</span><span class="o">:</span><span class="w">   </span><span class="o">&lt;</span><span class="m">25</span><span class="w">        </span><span class="m">1</span><span class="w">    </span><span class="m">649</span><span class="w">   </span><span class="m">13665</span>
+<span class="w"> </span><span class="m">4</span><span class="o">:</span><span class="w">   </span><span class="o">&gt;</span><span class="m">50</span><span class="w">        </span><span class="m">1</span><span class="w">    </span><span class="m">423</span><span class="w">   </span><span class="m">10747</span>
+<span class="w"> </span><span class="m">5</span><span class="o">:</span><span class="w"> </span><span class="m">25-34</span><span class="w">        </span><span class="m">2</span><span class="w">    </span><span class="m">422</span><span class="w">   </span><span class="m">12495</span>
+<span class="w"> </span><span class="m">6</span><span class="o">:</span><span class="w"> </span><span class="m">35-49</span><span class="w">        </span><span class="m">2</span><span class="w">    </span><span class="m">343</span><span class="w">   </span><span class="m">13462</span>
+<span class="w"> </span><span class="m">7</span><span class="o">:</span><span class="w">   </span><span class="o">&lt;</span><span class="m">25</span><span class="w">        </span><span class="m">2</span><span class="w">    </span><span class="m">587</span><span class="w">   </span><span class="m">11348</span>
+<span class="w"> </span><span class="m">8</span><span class="o">:</span><span class="w">   </span><span class="o">&gt;</span><span class="m">50</span><span class="w">        </span><span class="m">2</span><span class="w">    </span><span class="m">424</span><span class="w">   </span><span class="m">11888</span>
+<span class="w"> </span><span class="m">9</span><span class="o">:</span><span class="w"> </span><span class="m">25-34</span><span class="w">        </span><span class="m">3</span><span class="w">    </span><span class="m">420</span><span class="w">    </span><span class="m">8101</span>
+<span class="m">10</span><span class="o">:</span><span class="w"> </span><span class="m">35-49</span><span class="w">        </span><span class="m">3</span><span class="w">    </span><span class="m">330</span><span class="w">   </span><span class="m">14933</span>
+<span class="m">11</span><span class="o">:</span><span class="w">   </span><span class="o">&lt;</span><span class="m">25</span><span class="w">        </span><span class="m">3</span><span class="w">    </span><span class="m">582</span><span class="w">   </span><span class="m">13167</span>
+<span class="m">12</span><span class="o">:</span><span class="w">   </span><span class="o">&gt;</span><span class="m">50</span><span class="w">        </span><span class="m">3</span><span class="w">    </span><span class="m">385</span><span class="w">   </span><span class="m">13730</span>
+<span class="m">13</span><span class="o">:</span><span class="w"> </span><span class="m">25-34</span><span class="w">        </span><span class="m">4</span><span class="w">    </span><span class="m">417</span><span class="w">   </span><span class="m">11433</span>
+<span class="m">14</span><span class="o">:</span><span class="w"> </span><span class="m">35-49</span><span class="w">        </span><span class="m">4</span><span class="w">    </span><span class="m">345</span><span class="w">   </span><span class="m">10091</span>
+<span class="m">15</span><span class="o">:</span><span class="w">   </span><span class="o">&lt;</span><span class="m">25</span><span class="w">        </span><span class="m">4</span><span class="w">    </span><span class="m">592</span><span class="w">   </span><span class="m">10752</span>
+<span class="m">16</span><span class="o">:</span><span class="w">   </span><span class="o">&gt;</span><span class="m">50</span><span class="w">        </span><span class="m">4</span><span class="w">    </span><span class="m">370</span><span class="w">   </span><span class="m">11417</span>
+</code></pre></div>
+
+<p>Using this approach, we can write programs that assign which columns to aggregate dynamically at the point of&nbsp;execution. </p>
+<h4>Summary</h4>
+<p>A few things to keep in mind when performing aggregate operations in&nbsp;data.table:</p>
+<ul>
+<li>
+<p><code>.SD</code> by default gets assigned all columns except the columns mentioned in <code>by=</code>.</p>
+</li>
+<li>
+<p><code>.SDcols</code> represents the fields that should be aggregated (columns must be&nbsp;numeric).</p>
+</li>
+<li>
+<p><code>by=</code>is similiar to <span class="caps">SQL</span> <code>GROUP BY</code>. Specifies the keys over which data should be&nbsp;aggregated. </p>
+</li>
+<li>
+<p>If you keep the <code>:=</code> operator, the results will not be aggregated. Instead the aggregate amount of the 
+target column will be appended to each record in the original&nbsp;data.table.</p>
+</li>
+</ul>
+            </div>
+            <!-- /.entry-content -->
+        </article>
+    </section>
+
+        </div>
+        <div class="col-sm-3" id="sidebar">
+            <aside>
+<div id="aboutme">
+        <p>
+            <img width="100%" class="img-thumbnail" src="./images/JDTGOOG.JPG"/>
+        </p>
+    <p>
+      <strong>About James D. Triveri</strong><br/>
+        Data Scientist interested in ML/DL, automation and scientific computing.
+    </p>
+</div><!-- Sidebar -->
+<section class="well well-sm">
+  <ul class="list-group list-group-flush">
+
+<!-- Sidebar/Links -->
+<li class="list-group-item">
+  <h4><i class="fa fa-external-link-square fa-lg"></i><span class="icon-label">Links</span></h4>
+  <ul class="list-group" id="links">
+    <li class="list-group-item">
+      <a href="http://python.org/" target="_blank">Python.org</a>
+    </li>
+    <li class="list-group-item">
+      <a href="https://docs.python.org/3/py-modindex.html" target="_blank">The Python Module Index</a>
+    </li>
+    <li class="list-group-item">
+      <a href="https://scikit-learn.org/stable/documentation.html" target="_blank">Scikit-Learn</a>
+    </li>
+    <li class="list-group-item">
+      <a href="https://www.scipy.org/docs.html" target="_blank">Scipy Docs</a>
+    </li>
+    <li class="list-group-item">
+      <a href="https://openai.com/" target="_blank">OpenAI</a>
+    </li>
+  </ul>
+</li>
+<!-- End Sidebar/Links -->
+
+<!-- Sidebar/Images -->
+<li class="list-group-item">
+  <ul class="list-group" id="links">
+    <img width="100%" class="img-thumbnail" src="images/Sidebar/sidebarA.jpg"/>
+    <img width="100%" class="img-thumbnail" src="images/Sidebar/sidebarB.png"/>
+    <img width="100%" class="img-thumbnail" src="images/Sidebar/sidebarC.jpg"/>
+    <img width="100%" class="img-thumbnail" src="images/Sidebar/sidebarD.jpg"/>
+  </ul>
+</li>
+<!-- End Sidebar/Images -->
+  </ul>
+</section>
+<!-- End Sidebar -->            </aside>
+        </div>
+    </div>
+</div>
+<!-- End Content Container -->
+
+<footer>
+   <div class="container-fluid">
+      <hr>
+      <div class="row">
+         <div class="col-xs-10">&copy; 2023 James D. Triveri
+            &middot; Powered by <a href="https://github.com/getpelican/pelican-themes/tree/master/pelican-bootstrap3" target="_blank">pelican-bootstrap3</a>,
+            <a href="http://docs.getpelican.com/" target="_blank">Pelican</a>,
+            <a href="http://getbootstrap.com" target="_blank">Bootstrap</a>         </div>
+         <div class="col-xs-2"><p class="pull-right"><i class="fa fa-arrow-up"></i> <a href="#">Back to top</a></p></div>
+      </div>
+   </div>
+</footer>
+<script src="./theme/js/jquery.min.js"></script>
+
+<!-- Include all compiled plugins (below), or include individual files as needed -->
+<script src="./theme/js/bootstrap.min.js"></script>
+
+<!-- Enable responsive features in IE8 with Respond.js (https://github.com/scottjehl/Respond) -->
+<script src="./theme/js/respond.min.js"></script>
+
+
+    <script src="./theme/js/bodypadding.js"></script>
+
+
+</body>
+</html>

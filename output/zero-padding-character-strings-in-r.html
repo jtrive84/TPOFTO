@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en" prefix="og: http://ogp.me/ns# fb: https://www.facebook.com/2008/fbml">
+<head>
+    <title>Zero-Padding Character Strings in R - The Pleasure of Finding Things Out</title>
+    <!-- Using the latest rendering mode for IE -->
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+
+
+<link rel="canonical" href="./zero-padding-character-strings-in-r.html">
+
+        <meta name="author" content="James D. Triveri" />
+        <meta name="keywords" content="R" />
+        <meta name="description" content="Zero-Padding character strings in R" />
+
+        <meta property="og:site_name" content="The Pleasure of Finding Things Out" />
+        <meta property="og:type" content="article"/>
+        <meta property="og:title" content="Zero-Padding Character Strings in R"/>
+        <meta property="og:url" content="./zero-padding-character-strings-in-r.html"/>
+        <meta property="og:description" content="Zero-Padding character strings in R"/>
+        <meta property="article:published_time" content="2023-04-23" />
+            <meta property="article:section" content="R" />
+            <meta property="article:tag" content="R" />
+            <meta property="article:author" content="James D. Triveri" />
+
+
+
+    <!-- Bootstrap -->
+        <link rel="stylesheet" href="./theme/css/bootstrap.Yeti.min.css" type="text/css"/>
+    <link href="./theme/css/font-awesome.min.css" rel="stylesheet">
+
+    <link href="./theme/css/pygments/default.css" rel="stylesheet">
+        <link href="./theme/css/typogrify.css" rel="stylesheet">
+    <link rel="stylesheet" href="./theme/css/style.css" type="text/css"/>
+        <link href="./static/css/custom.css" rel="stylesheet">
+
+
+
+
+</head>
+<body>
+
+<div class="navbar navbar-inverse navbar-fixed-top" role="navigation">
+    <div class="container-fluid">
+        <div class="navbar-header">
+            <button type="button" class="navbar-toggle" data-toggle="collapse" data-target=".navbar-ex1-collapse">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            <a href="./" class="navbar-brand">
+The Pleasure of Finding Things Out            </a>
+        </div>
+        <div class="collapse navbar-collapse navbar-ex1-collapse">
+            <ul class="nav navbar-nav">
+                         <li><a href="./pages/about-me.html">
+                             About&nbsp;Me
+                          </a></li>
+                        <li >
+                            <a href="./category/machine-learning.html">Machine learning</a>
+                        </li>
+                        <li >
+                            <a href="./category/python.html">Python</a>
+                        </li>
+                        <li class="active">
+                            <a href="./category/r.html">R</a>
+                        </li>
+                        <li >
+                            <a href="./category/statistical-modeling.html">Statistical modeling</a>
+                        </li>
+            </ul>
+            <ul class="nav navbar-nav navbar-right">
+            </ul>
+        </div>
+        <!-- /.navbar-collapse -->
+    </div>
+</div> <!-- /.navbar -->
+
+<!-- Banner -->
+<!-- End Banner -->
+
+<!-- Content Container -->
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-sm-9">
+    <section id="content">
+        <article>
+            <header class="page-header">
+                <h1>
+                    <a href="./zero-padding-character-strings-in-r.html"
+                       rel="bookmark"
+                       title="Permalink to Zero-Padding Character Strings in R">
+                        Zero-Padding Character Strings in&nbsp;R
+                    </a>
+                </h1>
+            </header>
+            <div class="entry-content">
+                <div class="panel">
+                    <div class="panel-body">
+<footer class="post-info">
+    <span class="label label-default">Date</span>
+    <span class="published">
+        <i class="fa fa-calendar"></i><time datetime="2023-04-23T00:00:00-05:00"> 2023-04-23</time>
+    </span>
+
+
+
+
+
+<span class="label label-default">Tags</span>
+	<a href="./tag/r.html">R</a>
+    
+</footer><!-- /.post-info -->                    </div>
+                </div>
+                <p>Frequently, it is necessary to pad string variables to all be on the same basis and widths. This is commonly encountered 
+when datasets are saved to .csv files which leads to the truncation of leading 0&#8217;s for values interpreted as numeric&nbsp;fields. </p>
+<p>Assume we have the following&nbsp;dataset:</p>
+<div class="highlight"><pre><span></span><code>              ID KEY VALUE
+1 0209400-567991   A     7
+2 0809400-758193   B     6
+3     00403-0101   C     5
+4     0009400-09   D     4
+5           7-31   E     3
+6       99999-01   F     2
+7     5550-10000   G     1
+</code></pre></div>
+
+<p>Notice the values under <code>ID</code> have varying length. In what follows, we use a combination of regular expressions and the 
+builtin <code>formatC</code> function to pad a string with two parts into dash-separated 7-character and 6-character components.
+We create the dataset above, then present the required steps to carry out the&nbsp;transformation:</p>
+<div class="highlight"><pre><span></span><code><span class="nf">library</span><span class="p">(</span><span class="s">&quot;data.table&quot;</span><span class="p">)</span>
+
+<span class="n">DF</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">data.table</span><span class="p">(</span>
+<span class="w">    </span><span class="n">ID</span><span class="o">=</span><span class="nf">c</span><span class="p">(</span><span class="s">&quot;0209400-567991&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;0809400-758193&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;00403-0101&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;0009400-09&quot;</span><span class="p">,</span><span class="w"> </span>
+<span class="w">         </span><span class="s">&quot;7-31&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;99999-01&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;5550-10000&quot;</span><span class="p">),</span>
+<span class="w">    </span><span class="n">KEY</span><span class="o">=</span><span class="nf">c</span><span class="p">(</span><span class="kc">LETTERS</span><span class="p">[</span><span class="m">1</span><span class="o">:</span><span class="m">7</span><span class="p">]),</span><span class="w"> </span><span class="n">VALUE</span><span class="o">=</span><span class="nf">c</span><span class="p">(</span><span class="m">7</span><span class="p">,</span><span class="m">6</span><span class="p">,</span><span class="m">5</span><span class="p">,</span><span class="m">4</span><span class="p">,</span><span class="m">3</span><span class="p">,</span><span class="m">2</span><span class="p">,</span><span class="m">1</span><span class="p">),</span>
+<span class="w">    </span><span class="n">stringsAsFactors</span><span class="o">=</span><span class="kc">FALSE</span>
+<span class="w">    </span><span class="p">)</span>
+
+<span class="n">DF</span><span class="p">[,</span><span class="n">ID_HEAD</span><span class="o">:=</span><span class="nf">as.numeric</span><span class="p">(</span><span class="nf">trimws</span><span class="p">(</span><span class="nf">sub</span><span class="p">(</span><span class="s">&quot;^(\\d{1,})-.*&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;\\1&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">ID</span><span class="p">)))]</span>
+<span class="n">DF</span><span class="p">[,</span><span class="n">ID_TAIL</span><span class="o">:=</span><span class="nf">as.numeric</span><span class="p">(</span><span class="nf">trimws</span><span class="p">(</span><span class="nf">sub</span><span class="p">(</span><span class="s">&quot;.*-(\\d{1,})$&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;\\1&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">ID</span><span class="p">)))]</span>
+<span class="n">DF</span><span class="p">[,</span><span class="n">ID_TAIL</span><span class="o">:=</span><span class="nf">formatC</span><span class="p">(</span><span class="n">ID_TAIL</span><span class="p">,</span><span class="w"> </span><span class="n">format</span><span class="o">=</span><span class="s">&quot;d&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">width</span><span class="o">=</span><span class="m">6</span><span class="p">,</span><span class="w"> </span><span class="n">flag</span><span class="o">=</span><span class="m">0</span><span class="p">)]</span>
+<span class="n">DF</span><span class="p">[,</span><span class="n">ID_HEAD</span><span class="o">:=</span><span class="nf">formatC</span><span class="p">(</span><span class="n">ID_HEAD</span><span class="p">,</span><span class="w"> </span><span class="n">format</span><span class="o">=</span><span class="s">&quot;d&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">width</span><span class="o">=</span><span class="m">7</span><span class="p">,</span><span class="w"> </span><span class="n">flag</span><span class="o">=</span><span class="m">0</span><span class="p">)]</span>
+<span class="n">DF</span><span class="p">[,</span><span class="n">ID_NEW</span><span class="o">:=</span><span class="nf">paste0</span><span class="p">(</span><span class="n">ID_HEAD</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;-&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">ID_TAIL</span><span class="p">)]</span>
+<span class="n">DF</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">DF</span><span class="p">[,</span><span class="nf">.</span><span class="p">(</span><span class="n">ID_NEW</span><span class="p">,</span><span class="w"> </span><span class="n">KEY</span><span class="p">,</span><span class="w"> </span><span class="n">VALUE</span><span class="p">)]</span>
+</code></pre></div>
+
+<p>After executing this code, <code>ID_NEW</code> represents the transformed <code>ID</code> field:</p>
+<div class="highlight"><pre><span></span><code>          ID_NEW KEY VALUE
+1 0209400-567991   A     7
+2 0809400-758193   B     6
+3 0000403-000101   C     5
+4 0009400-000009   D     4
+5 0000007-000031   E     3
+6 0099999-000001   F     2
+7 0005550-010000   G     1
+</code></pre></div>
+
+<p>A Brief description of what&#8217;s happening in the&nbsp;code:</p>
+<blockquote>
+<ol>
+<li><code>DF[,ID_HEAD:=as.numeric(trimws(sub("^(\\d{1,})-.*", "\\1", ID)))]</code></li>
+</ol>
+</blockquote>
+<p>In the first command, we use regular expressions to isolate the &#8220;length-greater-than-one&#8221; sequence of integers preceding 
+(to the left of) the <code>-</code> character. <code>^</code> informs the regular expression parser to only extract instances in which a number 
+is the first character, and to extract as many numbers as there are up to and not including <code>-</code>. <code>{1,}</code> represents one or 
+more of the preceding specifier, and <code>\\d</code> is a stand-in for numeric values. Notice that we need to escape the first 
+forward slash, so it isn&#8217;t interpeted as a literal backslash by the parser. 
+The second argument to <code>sub</code>, <code>\\1</code>, is another regular expression concept known as a capture group. This specifies that 
+whatever is surrounded by parens in our regex will be extracted instead of the entire match string. In this 
+case, it will be the greater-than-one numeric sequence representing the first part of the <span class="caps">ID</span> value. Finally, we convert 
+the extracted numeric string to a numeric type. This is in preparation for getting passed into <code>formatC</code>. Notice that we 
+don&#8217;t use <code>as.integer</code>, since the integer type in R is only valid for the numeric range +/-2147483647. Typically, string 
+identifiers, whether policy or claim numbers, are longer than this, so we use <code>as.numeric</code>, which provides more&nbsp;headroom. </p>
+<blockquote>
+<ol>
+<li><code>DF[,ID_TAIL:=as.numeric(trimws(sub(".*-(\\d{1,})$", "\\1", ID)))]</code></li>
+</ol>
+</blockquote>
+<p>This is essentially doing the same thing, but for the second component of the <span class="caps">ID</span> field. Notice that the capture group is 
+now matching numeric sequences of at least one <em>trailing</em> &#8220;<code>-</code><span class="dquo">&#8220;</span>. </p>
+<blockquote>
+<ol>
+<li><code>DF[,ID_TAIL:=formatC(ID_TAIL, format="d", width=6, flag=0)]</code></li>
+</ol>
+</blockquote>
+<p>Here&#8217;s where the padding comes in: <code>formatC</code> takes a format (&#8220;d&#8221; represents integer, a width and a character specification, 
+and returns a left-padded representation of the specified value out to the width specified. Here we left pad the trailing 
+<span class="caps">ID</span> to six&nbsp;characters. </p>
+<blockquote>
+<ol>
+<li><code>DF[,ID_HEAD:=formatC(ID_HEAD, format="d", width=7, flag=0)]</code></li>
+</ol>
+</blockquote>
+<p>Same as #3, but for the leading component and padding to seven&nbsp;characters. </p>
+<blockquote>
+<ol>
+<li><code>DF[,ID_NEW:=paste0(ID_HEAD, "-", ID_TAIL)]</code></li>
+</ol>
+</blockquote>
+<p>The simple concatenation of ID_HEAD and&nbsp;ID_TAIL. </p>
+            </div>
+            <!-- /.entry-content -->
+        </article>
+    </section>
+
+        </div>
+        <div class="col-sm-3" id="sidebar">
+            <aside>
+<div id="aboutme">
+        <p>
+            <img width="100%" class="img-thumbnail" src="./images/JDTGOOG.JPG"/>
+        </p>
+    <p>
+      <strong>About James D. Triveri</strong><br/>
+        Data Scientist interested in ML/DL, automation and scientific computing.
+    </p>
+</div><!-- Sidebar -->
+<section class="well well-sm">
+  <ul class="list-group list-group-flush">
+
+<!-- Sidebar/Links -->
+<li class="list-group-item">
+  <h4><i class="fa fa-external-link-square fa-lg"></i><span class="icon-label">Links</span></h4>
+  <ul class="list-group" id="links">
+    <li class="list-group-item">
+      <a href="http://python.org/" target="_blank">Python.org</a>
+    </li>
+    <li class="list-group-item">
+      <a href="https://docs.python.org/3/py-modindex.html" target="_blank">The Python Module Index</a>
+    </li>
+    <li class="list-group-item">
+      <a href="https://scikit-learn.org/stable/documentation.html" target="_blank">Scikit-Learn</a>
+    </li>
+    <li class="list-group-item">
+      <a href="https://www.scipy.org/docs.html" target="_blank">Scipy Docs</a>
+    </li>
+    <li class="list-group-item">
+      <a href="https://openai.com/" target="_blank">OpenAI</a>
+    </li>
+  </ul>
+</li>
+<!-- End Sidebar/Links -->
+
+<!-- Sidebar/Images -->
+<li class="list-group-item">
+  <ul class="list-group" id="links">
+    <img width="100%" class="img-thumbnail" src="images/Sidebar/sidebarA.jpg"/>
+    <img width="100%" class="img-thumbnail" src="images/Sidebar/sidebarB.png"/>
+    <img width="100%" class="img-thumbnail" src="images/Sidebar/sidebarC.jpg"/>
+    <img width="100%" class="img-thumbnail" src="images/Sidebar/sidebarD.jpg"/>
+  </ul>
+</li>
+<!-- End Sidebar/Images -->
+  </ul>
+</section>
+<!-- End Sidebar -->            </aside>
+        </div>
+    </div>
+</div>
+<!-- End Content Container -->
+
+<footer>
+   <div class="container-fluid">
+      <hr>
+      <div class="row">
+         <div class="col-xs-10">&copy; 2023 James D. Triveri
+            &middot; Powered by <a href="https://github.com/getpelican/pelican-themes/tree/master/pelican-bootstrap3" target="_blank">pelican-bootstrap3</a>,
+            <a href="http://docs.getpelican.com/" target="_blank">Pelican</a>,
+            <a href="http://getbootstrap.com" target="_blank">Bootstrap</a>         </div>
+         <div class="col-xs-2"><p class="pull-right"><i class="fa fa-arrow-up"></i> <a href="#">Back to top</a></p></div>
+      </div>
+   </div>
+</footer>
+<script src="./theme/js/jquery.min.js"></script>
+
+<!-- Include all compiled plugins (below), or include individual files as needed -->
+<script src="./theme/js/bootstrap.min.js"></script>
+
+<!-- Enable responsive features in IE8 with Respond.js (https://github.com/scottjehl/Respond) -->
+<script src="./theme/js/respond.min.js"></script>
+
+
+    <script src="./theme/js/bodypadding.js"></script>
+
+
+</body>
+</html>

@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="en" prefix="og: http://ogp.me/ns# fb: https://www.facebook.com/2008/fbml">
+<head>
+    <title>A Python PDF Harvester in 25 LOC - The Pleasure of Finding Things Out</title>
+    <!-- Using the latest rendering mode for IE -->
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+
+
+<link rel="canonical" href="./a-python-pdf-harvester-in-25-loc.html">
+
+        <meta name="author" content="James D. Triveri" />
+        <meta name="keywords" content="Python" />
+        <meta name="description" content="A simple, effective PDF harvester in Python" />
+
+        <meta property="og:site_name" content="The Pleasure of Finding Things Out" />
+        <meta property="og:type" content="article"/>
+        <meta property="og:title" content="A Python PDF Harvester in 25 LOC"/>
+        <meta property="og:url" content="./a-python-pdf-harvester-in-25-loc.html"/>
+        <meta property="og:description" content="A simple, effective PDF harvester in Python"/>
+        <meta property="article:published_time" content="2023-04-23" />
+            <meta property="article:section" content="Python" />
+            <meta property="article:tag" content="Python" />
+            <meta property="article:author" content="James D. Triveri" />
+
+
+
+    <!-- Bootstrap -->
+        <link rel="stylesheet" href="./theme/css/bootstrap.Yeti.min.css" type="text/css"/>
+    <link href="./theme/css/font-awesome.min.css" rel="stylesheet">
+
+    <link href="./theme/css/pygments/default.css" rel="stylesheet">
+        <link href="./theme/css/typogrify.css" rel="stylesheet">
+    <link rel="stylesheet" href="./theme/css/style.css" type="text/css"/>
+        <link href="./static/css/custom.css" rel="stylesheet">
+
+
+
+
+</head>
+<body>
+
+<div class="navbar navbar-inverse navbar-fixed-top" role="navigation">
+    <div class="container-fluid">
+        <div class="navbar-header">
+            <button type="button" class="navbar-toggle" data-toggle="collapse" data-target=".navbar-ex1-collapse">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            <a href="./" class="navbar-brand">
+The Pleasure of Finding Things Out            </a>
+        </div>
+        <div class="collapse navbar-collapse navbar-ex1-collapse">
+            <ul class="nav navbar-nav">
+                         <li><a href="./pages/about-me.html">
+                             About&nbsp;Me
+                          </a></li>
+                        <li >
+                            <a href="./category/machine-learning.html">Machine learning</a>
+                        </li>
+                        <li class="active">
+                            <a href="./category/python.html">Python</a>
+                        </li>
+                        <li >
+                            <a href="./category/r.html">R</a>
+                        </li>
+                        <li >
+                            <a href="./category/statistical-modeling.html">Statistical modeling</a>
+                        </li>
+            </ul>
+            <ul class="nav navbar-nav navbar-right">
+            </ul>
+        </div>
+        <!-- /.navbar-collapse -->
+    </div>
+</div> <!-- /.navbar -->
+
+<!-- Banner -->
+<!-- End Banner -->
+
+<!-- Content Container -->
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-sm-9">
+    <section id="content">
+        <article>
+            <header class="page-header">
+                <h1>
+                    <a href="./a-python-pdf-harvester-in-25-loc.html"
+                       rel="bookmark"
+                       title="Permalink to A Python PDF Harvester in 25 LOC">
+                        A Python <span class="caps">PDF</span> Harvester in 25 <span class="caps">LOC</span>
+                    </a>
+                </h1>
+            </header>
+            <div class="entry-content">
+                <div class="panel">
+                    <div class="panel-body">
+<footer class="post-info">
+    <span class="label label-default">Date</span>
+    <span class="published">
+        <i class="fa fa-calendar"></i><time datetime="2023-04-23T00:00:00-05:00"> 2023-04-23</time>
+    </span>
+
+
+
+
+
+<span class="label label-default">Tags</span>
+	<a href="./tag/python.html">Python</a>
+    
+</footer><!-- /.post-info -->                    </div>
+                </div>
+                <p>The goal of this post is to develop a utility that handles the&nbsp;following:</p>
+<ol>
+<li>Retrieve <span class="caps">HTML</span> from the target&nbsp;webpage.    </li>
+<li>Parse the <span class="caps">HTML</span>, extracting all <span class="caps">URL</span> references to embedded <span class="caps">PDF</span>&nbsp;links.    </li>
+<li>For each embedded <span class="caps">PDF</span> link, download the document and save it&nbsp;locally.    </li>
+</ol>
+<p>Plenty of 3rd-party libraries can query and retrieve a webpage’s links in a 
+single call. However, the purpose of this post is to highlight the fact that by 
+combining elements of the Python Standard Library with the Requests package, we
+can create own own, and learn something while we&#8217;re at&nbsp;it. </p>
+<h3>Step I: Acquire <span class="caps">HTML</span></h3>
+<p>Before we begin, it&#8217;s important to mention that if you&#8217;re attempting to follow 
+along on a computer situated behind a firewall or corporate proxy, you’ll need 
+to provide the necessary proxy server details as part of the <code>requests.get</code> 
+call. For example, assume an individual with username &#8220;user33&#8221; and password 
+&#8220;Password33&#8221; has their web traffic routed through &#8220;corporate.proxy.com&#8221; via 
+port 8080. &#8220;user33&#8221; would first need to specify their authentication details 
+in a dictionary, then pass the dictionary to <code>requests.get</code><span class="quo">&#8216;</span>s optional proxies&nbsp;argument:</p>
+<div class="highlight"><pre><span></span><code><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">NOTE: This step is for individuals working behind a firewall</span>
+<span class="sd">or corporate proxy. If this does not apply, skip this section.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="kn">import</span> <span class="nn">requests</span>
+
+<span class="c1"># Creating proxies dict to submit along with requests.get.</span>
+<span class="n">proxies</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s1">&#39;http&#39;</span><span class="p">:</span> <span class="s1">&#39;http://user33:Password33@corporate.proxy.com:8080&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;https&#39;</span><span class="p">:</span> <span class="s1">&#39;https://user33:Password33@corporate.proxy.com:8080&#39;</span><span class="p">,</span>
+    <span class="p">}</span>
+
+<span class="c1"># Arbitrary URL from which to harvest PDFs.</span>
+<span class="n">URL</span> <span class="o">=</span> <span class="s2">&quot;https://en.wikipedia.org/wiki/Conjugate_prior&quot;</span>
+
+<span class="c1"># Simplified version of requests.get call for illustration only.</span>
+<span class="n">requests</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">URL</span><span class="p">,</span> <span class="n">proxies</span><span class="o">=</span><span class="n">proxies</span><span class="p">)</span>
+</code></pre></div>
+
+<p>Note that the <code>proxies</code> argument would be required for each subsequent 
+invocation of <code>requests.get</code>.
+For the remainder of the post, I&#8217;ll assume we are not working behind a proxy, 
+and will present all code examples without including the <code>proxies</code> argument.</p>
+<p>The library that facilitates communication between Python and the target 
+webpage is Requests. Retrieving a webpage&#8217;s <span class="caps">HTML</span> is as straightforward&nbsp;as:</p>
+<div class="highlight"><pre><span></span><code><span class="kn">import</span> <span class="nn">requests</span>
+<span class="n">requests</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="o">&lt;</span><span class="n">URL</span><span class="o">&gt;</span><span class="p">)</span><span class="o">.</span><span class="n">text</span>   
+</code></pre></div>
+
+<p>Where <code>URL</code> is a string representing the target <span class="caps">URL</span>. <code>requests.get</code> returns an 
+object, and by specifying the <code>.text</code> attribute, we&#8217;re requesting that the 
+page content be returned as plain text to allow for parsing with regular 
+expressions in the next&nbsp;step.</p>
+<p>What follows is the logic comprising step&nbsp;I:</p>
+<div class="highlight"><pre><span></span><code><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">PDF Harvester I of III: Retrieve HTML as plain text.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="kn">import</span> <span class="nn">requests</span>
+
+<span class="n">URL</span> <span class="o">=</span> <span class="s2">&quot;https://en.wikipedia.org/wiki/Conjugate_prior&quot;</span>
+
+<span class="c1"># instruct requests object to return HTML as plain text.</span>
+<span class="n">html</span> <span class="o">=</span> <span class="n">requests</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">URL</span><span class="p">)</span><span class="o">.</span><span class="n">text</span>
+</code></pre></div>
+
+<p>The <span class="caps">HTML</span> has been obtained. Next it will be necessary to identify and extract 
+references to all embedded <span class="caps">PDF</span>&nbsp;links.</p>
+<h3>Step <span class="caps">II</span>: Extract <span class="caps">PDF</span> URLs from <span class="caps">HTML</span></h3>
+<p>A cursory review of the <span class="caps">HTML</span> from webpages with embedded <span class="caps">PDF</span> links revealed the&nbsp;following:</p>
+<ul>
+<li>Valid <span class="caps">PDF</span> URLs will in almost always be embedded within an <code>href</code> tag.    </li>
+<li>Valid <span class="caps">PDF</span> URLs will in all cases be preceded by <code>http</code> or <code>https</code>.      </li>
+<li>Valid <span class="caps">PDF</span> URLs will in all cases be enclosed by a trailing <code>&gt;</code>.   </li>
+<li>Valid <span class="caps">PDF</span> URLs cannot contain&nbsp;whitespace.        </li>
+</ul>
+<p>After some trial and error, the following regular expression was found to have 
+acceptable performance for our test&nbsp;cases:</p>
+<div class="highlight"><pre><span></span><code>&quot;(?=href=).*(https?://\S+.pdf).*?&gt;&quot;
+</code></pre></div>
+
+<p>An excellent site to practice building and testing regular expressions is 
+<a href="https://pythex.org/">Pythex</a> . The app allows you to construct regular 
+expressions and determine how they match against the target text. I find myself 
+using it on a regular basis. Highly&nbsp;recommended!  </p>
+<p>Here is the logic associated with steps I and <span class="caps">II</span>:</p>
+<div class="highlight"><pre><span></span><code><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">PDF Harvester II of III: Extract PDF URL&#39;s from HTML.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="kn">import</span> <span class="nn">requests</span>
+<span class="kn">import</span> <span class="nn">re</span>
+
+<span class="c1"># Specify URL for webpage of interest.</span>
+<span class="n">URL</span>  <span class="o">=</span> <span class="s2">&quot;https://en.wikipedia.org/wiki/Conjugate_prior&quot;</span>
+<span class="n">html</span> <span class="o">=</span> <span class="n">requests</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">URL</span><span class="p">)</span><span class="o">.</span><span class="n">text</span>
+
+<span class="c1"># Search html and compile PDF URLs in a list.</span>
+<span class="n">pdf_urls</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">findall</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;(?=href=).*(https?://\S+.pdf).*?&gt;&quot;</span><span class="p">,</span> <span class="n">html</span><span class="p">)</span>
+</code></pre></div>
+
+<p>Note that the regular expression is preceded with an <code>r</code> when passed to 
+<code>re.findall</code>. This instructs the Python virtual machine to interpret what 
+follows as a raw string and to ignore escape&nbsp;sequences`.</p>
+<p><code>re.findall</code> returns a list of matches extracted from the source text. In our 
+case, it returns a list of URLs referencing our target <span class="caps">PDF</span>&nbsp;documents.</p>
+<p>For our last step we need to retrieve the documents associated with our 
+collection of links and write them to file locally. We introduce another module 
+from the Python Standard Library, <code>os.path</code>, which facilitates the partitioning 
+of absolute filepaths into components in order to retain filenames when saving 
+documents to&nbsp;disk.</p>
+<p>For example, consider the following well-formed <span class="caps">URL</span>:</p>
+<div class="highlight"><pre><span></span><code>&quot;http://Statistical_Modeling/Fall_2017/Lectures/Lecture11.pdf&quot;
+</code></pre></div>
+
+<p>To capture <em>Lecture11.pdf</em>, we pass the absolute <span class="caps">URL</span> to <code>os.path.split</code>, which 
+returns a tuple of everything preceding the filename as the first element, 
+along with the filename and extension as the second&nbsp;element:</p>
+<div class="highlight"><pre><span></span><code><span class="n">In</span> <span class="p">[</span><span class="mi">1</span><span class="p">]:</span> <span class="kn">import</span> <span class="nn">os.path</span>
+<span class="n">In</span> <span class="p">[</span><span class="mi">2</span><span class="p">]:</span> <span class="n">url</span> <span class="o">=</span> <span class="s2">&quot;http://Statistical_Modeling/Fall_2017/Lectures/Lecture11.pdf&quot;</span>
+<span class="n">In</span> <span class="p">[</span><span class="mi">3</span><span class="p">]:</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="n">url</span><span class="p">)</span>
+<span class="n">Out</span><span class="p">[</span><span class="mi">1</span><span class="p">]:(</span><span class="s1">&#39;http://Statistical_Modeling/Fall_2017/Lectures&#39;</span><span class="p">,</span> <span class="s1">&#39;Lecture11.pdf&#39;</span><span class="p">)</span>
+</code></pre></div>
+
+<p>This will be used to preserve the filename of the documents we save&nbsp;locally.</p>
+<h3>Step <span class="caps">III</span>: Write PDFs to&nbsp;File</h3>
+<p>This step differs from the initial <span class="caps">HTML</span> retrieval in that we need to request 
+the content as bytes, not text. By calling <code>requests.get(url).content</code>, we&#8217;re 
+accessing the raw bytes that comprise the <span class="caps">PDF</span>, then writing those bytes to file. 
+Here&#8217;s the logic for the third and final&nbsp;step:</p>
+<div class="highlight"><pre><span></span><code><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">PDF Harvester III of III: Write PDF(s) to file.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">import</span> <span class="nn">os.path</span>
+<span class="kn">import</span> <span class="nn">re</span>
+<span class="kn">import</span> <span class="nn">requests</span>
+
+<span class="n">URL</span> <span class="o">=</span> <span class="s2">&quot;https://en.wikipedia.org/wiki/Conjugate_prior&quot;</span>
+<span class="n">html</span> <span class="o">=</span> <span class="n">requests</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">URL</span><span class="p">)</span><span class="o">.</span><span class="n">text</span>
+<span class="n">pdf_urls</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">findall</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;(?=href=).*(https?://\S+.pdf).*?&gt;&quot;</span><span class="p">,</span> <span class="n">html</span><span class="p">)</span>
+
+<span class="c1"># Set working directory to desired location.</span>
+<span class="n">os</span><span class="o">.</span><span class="n">chdir</span><span class="p">(</span><span class="s2">&quot;C:</span><span class="se">\\</span><span class="s2">user33</span><span class="se">\\</span><span class="s2">&quot;</span><span class="p">)</span>
+
+<span class="c1"># Request PDF content and write to file for all entries.</span>
+<span class="k">for</span> <span class="n">pdf</span> <span class="ow">in</span> <span class="n">pdf_urls</span><span class="p">:</span>
+
+    <span class="c1"># Get filename from url for naming file locally.</span>
+    <span class="n">pdfname</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="n">pdf</span><span class="p">)[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+
+    <span class="c1"># Get retrieved html as bytes.</span>
+    <span class="n">r</span> <span class="o">=</span> <span class="n">requests</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">pdf</span><span class="p">)</span><span class="o">.</span><span class="n">content</span>
+
+    <span class="k">try</span><span class="p">:</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">pdfname</span><span class="p">,</span> <span class="s2">&quot;wb&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span> <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">r</span><span class="p">)</span>
+    <span class="k">except</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Unable to download </span><span class="si">{}</span><span class="s2">.&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">pdfname</span><span class="p">))</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">Processing complete!&quot;</span><span class="p">)</span>
+</code></pre></div>
+
+<p>Notice that we surround <code>with open(pdfname, "wb")...</code> in a try-except block: 
+This handles situations that would prevent our code from downloading a 
+document, such as broken redirects or invalid&nbsp;links.</p>
+<p>All-in we end up with 24 lines, including comments and imports.
+We next present the full implementation of the <span class="caps">PDF</span> Harvester after a little&nbsp;reorganization:</p>
+<div class="highlight"><pre><span></span><code><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">PDF Harvester.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="kn">import</span> <span class="nn">datetime</span>
+<span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">import</span> <span class="nn">os.path</span>
+<span class="kn">import</span> <span class="nn">re</span>
+<span class="kn">import</span> <span class="nn">requests</span>
+
+
+<span class="k">def</span> <span class="nf">pdf_harvester</span><span class="p">(</span><span class="n">url</span><span class="p">,</span> <span class="n">loc</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">proxies</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Retrieve URLs html and extract references to PDFs. Download PDFs, </span>
+<span class="sd">    writting to `loc`. If `loc` is None, save to current working </span>
+<span class="sd">    directory.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">pdfdir</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">getcwd</span><span class="p">()</span> <span class="k">if</span> <span class="n">loc</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">loc</span>
+    <span class="n">html</span> <span class="o">=</span> <span class="n">requests</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">url</span><span class="p">,</span> <span class="n">proxies</span><span class="o">=</span><span class="n">proxies</span><span class="p">)</span><span class="o">.</span><span class="n">text</span>
+    <span class="n">pdf_urls</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">findall</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;(?=href=).*(https?://\S+.pdf).*?&gt;&quot;</span><span class="p">,</span> <span class="n">html</span><span class="p">)</span>
+
+    <span class="k">for</span> <span class="n">pdf_url</span> <span class="ow">in</span> <span class="n">pdf_urls</span><span class="p">:</span>
+        <span class="n">timestamp_</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%c</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;[</span><span class="si">{}</span><span class="s2">] Retrieving </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">timestamp_</span><span class="p">,</span> <span class="n">pdf_url</span><span class="p">))</span>
+        <span class="n">pdfname</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="n">pdf</span><span class="p">)[</span><span class="mi">1</span><span class="p">]</span>
+        <span class="n">pdfpath</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">pdfdir</span><span class="p">,</span> <span class="n">pdfname</span><span class="p">)</span>
+        <span class="n">req</span> <span class="o">=</span> <span class="n">requests</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">pdf</span><span class="p">)</span><span class="o">.</span><span class="n">content</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">pdfname</span><span class="p">,</span> <span class="s2">&quot;wb&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span> <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">req</span><span class="p">)</span>   
+        <span class="k">except</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Unable to download </span><span class="si">{}</span><span class="s2">.&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">pdfname</span><span class="p">))</span>
+
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">Processing complete!&quot;</span><span class="p">)</span>
+
+
+
+
+<span class="c1"># example calling `pdf_harvester` =&gt;</span>
+<span class="o">&gt;&gt;&gt;</span> <span class="n">URL</span> <span class="o">=</span> <span class="s2">&quot;https://en.wikipedia.org/wiki/Poisson_point_process&quot;</span>
+<span class="o">&gt;&gt;&gt;</span> <span class="n">pdf_harvester</span><span class="p">(</span><span class="n">URL</span><span class="p">,</span> <span class="n">proxies</span><span class="p">,</span> <span class="n">loc</span><span class="o">=</span><span class="s2">&quot;C:</span><span class="se">\\</span><span class="s2">user33</span><span class="se">\\</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="n">Processing</span> <span class="n">complete</span><span class="err">!</span>
+</code></pre></div>
+            </div>
+            <!-- /.entry-content -->
+        </article>
+    </section>
+
+        </div>
+        <div class="col-sm-3" id="sidebar">
+            <aside>
+<div id="aboutme">
+        <p>
+            <img width="100%" class="img-thumbnail" src="./images/JDTGOOG.JPG"/>
+        </p>
+    <p>
+      <strong>About James D. Triveri</strong><br/>
+        Data Scientist interested in ML/DL, automation and scientific computing.
+    </p>
+</div><!-- Sidebar -->
+<section class="well well-sm">
+  <ul class="list-group list-group-flush">
+
+<!-- Sidebar/Links -->
+<li class="list-group-item">
+  <h4><i class="fa fa-external-link-square fa-lg"></i><span class="icon-label">Links</span></h4>
+  <ul class="list-group" id="links">
+    <li class="list-group-item">
+      <a href="http://python.org/" target="_blank">Python.org</a>
+    </li>
+    <li class="list-group-item">
+      <a href="https://docs.python.org/3/py-modindex.html" target="_blank">The Python Module Index</a>
+    </li>
+    <li class="list-group-item">
+      <a href="https://scikit-learn.org/stable/documentation.html" target="_blank">Scikit-Learn</a>
+    </li>
+    <li class="list-group-item">
+      <a href="https://www.scipy.org/docs.html" target="_blank">Scipy Docs</a>
+    </li>
+    <li class="list-group-item">
+      <a href="https://openai.com/" target="_blank">OpenAI</a>
+    </li>
+  </ul>
+</li>
+<!-- End Sidebar/Links -->
+
+<!-- Sidebar/Images -->
+<li class="list-group-item">
+  <ul class="list-group" id="links">
+    <img width="100%" class="img-thumbnail" src="images/Sidebar/sidebarA.jpg"/>
+    <img width="100%" class="img-thumbnail" src="images/Sidebar/sidebarB.png"/>
+    <img width="100%" class="img-thumbnail" src="images/Sidebar/sidebarC.jpg"/>
+    <img width="100%" class="img-thumbnail" src="images/Sidebar/sidebarD.jpg"/>
+  </ul>
+</li>
+<!-- End Sidebar/Images -->
+  </ul>
+</section>
+<!-- End Sidebar -->            </aside>
+        </div>
+    </div>
+</div>
+<!-- End Content Container -->
+
+<footer>
+   <div class="container-fluid">
+      <hr>
+      <div class="row">
+         <div class="col-xs-10">&copy; 2023 James D. Triveri
+            &middot; Powered by <a href="https://github.com/getpelican/pelican-themes/tree/master/pelican-bootstrap3" target="_blank">pelican-bootstrap3</a>,
+            <a href="http://docs.getpelican.com/" target="_blank">Pelican</a>,
+            <a href="http://getbootstrap.com" target="_blank">Bootstrap</a>         </div>
+         <div class="col-xs-2"><p class="pull-right"><i class="fa fa-arrow-up"></i> <a href="#">Back to top</a></p></div>
+      </div>
+   </div>
+</footer>
+<script src="./theme/js/jquery.min.js"></script>
+
+<!-- Include all compiled plugins (below), or include individual files as needed -->
+<script src="./theme/js/bootstrap.min.js"></script>
+
+<!-- Enable responsive features in IE8 with Respond.js (https://github.com/scottjehl/Respond) -->
+<script src="./theme/js/respond.min.js"></script>
+
+
+    <script src="./theme/js/bodypadding.js"></script>
+
+
+</body>
+</html>

@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en" prefix="og: http://ogp.me/ns# fb: https://www.facebook.com/2008/fbml">
+<head>
+    <title>The Beta Function and its Variants - The Pleasure of Finding Things Out</title>
+    <!-- Using the latest rendering mode for IE -->
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+
+
+<link rel="canonical" href="./the-beta-function-and-its-variants.html">
+
+        <meta name="author" content="James D. Triveri" />
+        <meta name="keywords" content="Statistical Modeling,Python" />
+        <meta name="description" content="An Investigation of the complete and incomplete Beta Functions with use cases" />
+
+        <meta property="og:site_name" content="The Pleasure of Finding Things Out" />
+        <meta property="og:type" content="article"/>
+        <meta property="og:title" content="The Beta Function and its Variants"/>
+        <meta property="og:url" content="./the-beta-function-and-its-variants.html"/>
+        <meta property="og:description" content="An Investigation of the complete and incomplete Beta Functions with use cases"/>
+        <meta property="article:published_time" content="2023-03-18" />
+            <meta property="article:section" content="Statistical Modeling" />
+            <meta property="article:tag" content="Statistical Modeling" />
+            <meta property="article:tag" content="Python" />
+            <meta property="article:author" content="James D. Triveri" />
+
+
+
+    <!-- Bootstrap -->
+        <link rel="stylesheet" href="./theme/css/bootstrap.Yeti.min.css" type="text/css"/>
+    <link href="./theme/css/font-awesome.min.css" rel="stylesheet">
+
+    <link href="./theme/css/pygments/default.css" rel="stylesheet">
+        <link href="./theme/css/typogrify.css" rel="stylesheet">
+    <link rel="stylesheet" href="./theme/css/style.css" type="text/css"/>
+        <link href="./static/css/custom.css" rel="stylesheet">
+
+
+
+
+</head>
+<body>
+
+<div class="navbar navbar-inverse navbar-fixed-top" role="navigation">
+    <div class="container-fluid">
+        <div class="navbar-header">
+            <button type="button" class="navbar-toggle" data-toggle="collapse" data-target=".navbar-ex1-collapse">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            <a href="./" class="navbar-brand">
+The Pleasure of Finding Things Out            </a>
+        </div>
+        <div class="collapse navbar-collapse navbar-ex1-collapse">
+            <ul class="nav navbar-nav">
+                         <li><a href="./pages/about-me.html">
+                             About&nbsp;Me
+                          </a></li>
+                        <li >
+                            <a href="./category/machine-learning.html">Machine learning</a>
+                        </li>
+                        <li >
+                            <a href="./category/python.html">Python</a>
+                        </li>
+                        <li >
+                            <a href="./category/r.html">R</a>
+                        </li>
+                        <li class="active">
+                            <a href="./category/statistical-modeling.html">Statistical modeling</a>
+                        </li>
+            </ul>
+            <ul class="nav navbar-nav navbar-right">
+            </ul>
+        </div>
+        <!-- /.navbar-collapse -->
+    </div>
+</div> <!-- /.navbar -->
+
+<!-- Banner -->
+<!-- End Banner -->
+
+<!-- Content Container -->
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-sm-9">
+    <section id="content">
+        <article>
+            <header class="page-header">
+                <h1>
+                    <a href="./the-beta-function-and-its-variants.html"
+                       rel="bookmark"
+                       title="Permalink to The Beta Function and its Variants">
+                        The Beta Function and its&nbsp;Variants
+                    </a>
+                </h1>
+            </header>
+            <div class="entry-content">
+                <div class="panel">
+                    <div class="panel-body">
+<footer class="post-info">
+    <span class="label label-default">Date</span>
+    <span class="published">
+        <i class="fa fa-calendar"></i><time datetime="2023-03-18T00:00:00-05:00"> 2023-03-18</time>
+    </span>
+
+
+
+
+
+<span class="label label-default">Tags</span>
+	<a href="./tag/statistical-modeling.html">Statistical Modeling</a>
+        /
+	<a href="./tag/python.html">Python</a>
+    
+</footer><!-- /.post-info -->                    </div>
+                </div>
+                <p>This post highlights variants of the beta function, and includes an implementation that 
+reproduces <span class="caps">CDF</span> output from <code>scipy.stats.nbinom</code> for a given&nbsp;parameterization.           </p>
+<p>No discussion of the beta function would be complete without first introducing the gamma function. The gamma function is an extension 
+of the factorial function, with its argument shifted down by 1, to real and complex&nbsp;numbers:  </p>
+<p>$$
+\Gamma(x) = \int_{0}^{\infty} t^{x-1} e^{-t} dt&nbsp;$$</p>
+<p>If $n$ is a positive integer, the gamma function reduces&nbsp;to:</p>
+<p>$$
+\Gamma(n) = (n-1)!.&nbsp;$$</p>
+<p>The beta function is given&nbsp;by:</p>
+<p>$$
+B(a, b) = \int_{0}^{1} t^{a-1} (1-t)^{b-1} dt, \quad a, b \in \mathbb{R}^{\geq}.&nbsp;$$</p>
+<p>The beta function can be represented in terms of the gamma function as&nbsp;follows:</p>
+<p>$$
+B(a, b) = \frac{\Gamma(a)\Gamma(b)}{\Gamma(a+b)}&nbsp;$$</p>
+<p>When $a, b \in \mathbb{Z}^{\geq}$, the expression simplifies&nbsp;to:</p>
+<p>$$
+B(a, b) = \frac{(a-1)!(b-1)!}{(a+b-1)!}.&nbsp;$$</p>
+<p>In the first beta function expression, the limits of integration were $(0,1)$. The <em>incomplete beta function</em> is a generalization of 
+the beta function which allows the upper limit of integration to take on values within the range $[0,x]$. Symbolically, the incomplete 
+beta function is represented&nbsp;as:</p>
+<p>$$
+B(x; a, b) = \int_{0}^{x} t^{a-1} (1-t)^{b-1} dt.&nbsp;$$</p>
+<p>When $x=1$, <em>the incomplete beta function and the beta function are equivalent</em>. Put another way, the beta function is the incomplete 
+beta function evaluated at $x=1$. Having described the beta function and the incomplete beta function, the regularized incomplete beta 
+function is introduced, which is also referred to as the <em>regularized beta function</em>. It is defined as the ratio of the incomplete beta 
+function to the beta function, evaluated at&nbsp;$x$:</p>
+<p>$$
+I_{x}(a,b) = \frac{B(x; a,b)}{B(a,b)}&nbsp;$$</p>
+<p>The regularized beta function is the cumulative distribution function for the beta distribution, which can be used to calculate the <span class="caps">CDF</span> 
+for both the negative binomial and binomial distributions. For a binomial random variable $X$, to determine the probability of $k$ or 
+fewer successes in $n$ independent trials, $k \leq n$, the <span class="caps">CDF</span> can be expressed&nbsp;by:</p>
+<p>$$
+F(x) = \sum_{i=0}^{n} \binom{n}{i} p^{i} (1-p)^{n-i} = I_{1-p}(n-k,1+k).&nbsp;$$</p>
+<p>To demonstrate, assume $p=.25$, $n=5$. The probability of 3 or fewer successes is conventionally computed via binomial expansion&nbsp;as:</p>
+<p>$$
+P[X \leq 3] = \binom{5}{0} .25^{0} .75^{5} + \binom{5}{1} .25^{1} .75^{4} + \binom{5}{2} .25^{2} .75^{3} + \binom{5}{3} .25^{3} .75^{2} = \mathbf{0.984375}.&nbsp;$$</p>
+<p>Equivalently, leveraging the regularized incomplete beta function&nbsp;yields:</p>
+<p>$$
+P[X \leq 3] = I_{.75}(2, 4) = \mathbf{0.984375}.&nbsp;$$</p>
+<p>For the negative binomial distribution, assuming the common $r,k$ parameterization in which the <span class="caps">PDF</span> is given&nbsp;by</p>
+<p>$$
+P(X=k) = \binom{k+r-1}{k} p^{k} (1-p)^{r} \quad \text{for} k = 0, 1, 2, \cdots.&nbsp;$$</p>
+<p>The negative binomial <span class="caps">CDF</span> can be computed using the regularized incomplete beta&nbsp;function:</p>
+<p>$$
+P(X \leq k) = 1 - I_{p}(k+1, r).&nbsp;$$</p>
+<h3>Implementation</h3>
+<p>In what follows, a function to compute the <span class="caps">CDF</span> of the negative binomial distribution using functions available in <code>scipy.special</code> is 
+demonstrated. Results will be compared to <code>scipy.stats.nbinom.cdf</code> for a set of inputs to assess the correctness of the&nbsp;implementation.</p>
+<div class="highlight"><pre><span></span><code><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">Calculation of negative binomial CDF using regularized incomplete </span>
+<span class="sd">beta function.</span>
+<span class="sd">Note that the call signature for nbinom.cdf is:</span>
+
+<span class="sd">    nbinom.cdf(&lt;nbr_failures&gt;, &lt;nbr_successes&gt;, &lt;prob_success&gt;)</span>
+
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="kn">from</span> <span class="nn">scipy.special</span> <span class="kn">import</span> <span class="n">gamma</span><span class="p">,</span> <span class="n">beta</span><span class="p">,</span> <span class="n">betainc</span>
+<span class="kn">from</span> <span class="nn">scipy.stats</span> <span class="kn">import</span> <span class="n">nbinom</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+
+<span class="c1"># Vectorization of nbinom.pmf.</span>
+<span class="n">nb_pdfs</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">vectorize</span><span class="p">(</span><span class="n">nbinom</span><span class="o">.</span><span class="n">pmf</span><span class="p">)</span>
+
+<span class="k">def</span> <span class="nf">nb_cdf</span><span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="n">n</span><span class="p">,</span>  <span class="n">p</span><span class="p">)</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Implementation of negative binomial CDF using the regularized </span>
+<span class="sd">    incomplete beta function.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">I</span> <span class="o">=</span> <span class="n">betainc</span><span class="p">(</span><span class="n">n</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">k</span><span class="p">,</span> <span class="n">p</span><span class="p">)</span>
+    <span class="k">return</span><span class="p">(</span><span class="mi">1</span><span class="o">-</span><span class="n">I</span><span class="p">)</span>
+</code></pre></div>
+
+<p>We test the implementation against the actual negative binomial <span class="caps">CDF</span>:</p>
+<div class="highlight"><pre><span></span><code><span class="n">In</span><span class="p">[</span><span class="mi">1</span><span class="p">]:</span> <span class="n">nbr_successes</span><span class="p">,</span> <span class="n">nbr_failures</span><span class="p">,</span> <span class="n">prob_success</span> <span class="o">=</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mf">.5</span>
+
+<span class="n">In</span><span class="p">[</span><span class="mi">2</span><span class="p">]:</span> <span class="n">sum_pdfs</span> <span class="o">=</span> <span class="n">nbinom_pdf</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">nbr_failures</span> <span class="o">+</span> <span class="mi">1</span><span class="p">),</span> <span class="n">nbr_successes</span><span class="p">,</span> <span class="n">prob_success</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+
+<span class="n">In</span><span class="p">[</span><span class="mi">3</span><span class="p">]:</span> <span class="n">sum_pdfs</span>
+<span class="n">Out</span><span class="p">[</span><span class="mi">3</span><span class="p">]:</span> <span class="mf">0.58809852600097756</span>
+
+<span class="n">In</span><span class="p">[</span><span class="mi">4</span><span class="p">]:</span> <span class="n">actual_cdf</span> <span class="o">=</span> <span class="n">nbinom</span><span class="o">.</span><span class="n">cdf</span><span class="p">(</span><span class="n">nbr_failures</span><span class="p">,</span> <span class="n">nbr_successes</span><span class="p">,</span> <span class="n">prob_success</span><span class="p">)</span>
+
+<span class="n">In</span><span class="p">[</span><span class="mi">5</span><span class="p">]:</span> <span class="n">actual_cdf</span>
+<span class="n">Out</span><span class="p">[</span><span class="mi">5</span><span class="p">]:</span> <span class="mf">.58809852600097678</span>
+
+<span class="n">In</span><span class="p">[</span><span class="mi">6</span><span class="p">]:</span> <span class="n">new_cdf</span> <span class="o">=</span> <span class="n">nb_cdf</span><span class="p">(</span><span class="n">nbr_failures</span><span class="p">,</span> <span class="n">nbr_successes</span><span class="p">,</span> <span class="n">prob_success</span><span class="p">)</span>
+
+<span class="n">In</span><span class="p">[</span><span class="mi">7</span><span class="p">]:</span> <span class="n">new_cdf</span>
+<span class="n">Out</span><span class="p">[</span><span class="mi">7</span><span class="p">]:</span> <span class="mf">0.58809852600097678</span>
+
+<span class="n">In</span><span class="p">[</span><span class="mi">8</span><span class="p">]:</span> <span class="n">np</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">actual_cdf</span><span class="p">,</span> <span class="n">new_cdf</span><span class="p">,</span> <span class="n">sum_pdfs</span><span class="p">)</span>
+<span class="n">Out</span><span class="p">[</span><span class="mi">8</span><span class="p">]:</span> <span class="kc">True</span>
+</code></pre></div>
+
+<p>As expected, all three approaches arrive at the same value for the negative binomial <span class="caps">CDF</span>. </p>
+            </div>
+            <!-- /.entry-content -->
+        </article>
+    </section>
+
+        </div>
+        <div class="col-sm-3" id="sidebar">
+            <aside>
+<div id="aboutme">
+        <p>
+            <img width="100%" class="img-thumbnail" src="./images/JDTGOOG.JPG"/>
+        </p>
+    <p>
+      <strong>About James D. Triveri</strong><br/>
+        Data Scientist interested in ML/DL, automation and scientific computing.
+    </p>
+</div><!-- Sidebar -->
+<section class="well well-sm">
+  <ul class="list-group list-group-flush">
+
+<!-- Sidebar/Links -->
+<li class="list-group-item">
+  <h4><i class="fa fa-external-link-square fa-lg"></i><span class="icon-label">Links</span></h4>
+  <ul class="list-group" id="links">
+    <li class="list-group-item">
+      <a href="http://python.org/" target="_blank">Python.org</a>
+    </li>
+    <li class="list-group-item">
+      <a href="https://docs.python.org/3/py-modindex.html" target="_blank">The Python Module Index</a>
+    </li>
+    <li class="list-group-item">
+      <a href="https://scikit-learn.org/stable/documentation.html" target="_blank">Scikit-Learn</a>
+    </li>
+    <li class="list-group-item">
+      <a href="https://www.scipy.org/docs.html" target="_blank">Scipy Docs</a>
+    </li>
+    <li class="list-group-item">
+      <a href="https://openai.com/" target="_blank">OpenAI</a>
+    </li>
+  </ul>
+</li>
+<!-- End Sidebar/Links -->
+
+<!-- Sidebar/Images -->
+<li class="list-group-item">
+  <ul class="list-group" id="links">
+    <img width="100%" class="img-thumbnail" src="images/Sidebar/sidebarA.jpg"/>
+    <img width="100%" class="img-thumbnail" src="images/Sidebar/sidebarB.png"/>
+    <img width="100%" class="img-thumbnail" src="images/Sidebar/sidebarC.jpg"/>
+    <img width="100%" class="img-thumbnail" src="images/Sidebar/sidebarD.jpg"/>
+  </ul>
+</li>
+<!-- End Sidebar/Images -->
+  </ul>
+</section>
+<!-- End Sidebar -->            </aside>
+        </div>
+    </div>
+</div>
+<!-- End Content Container -->
+
+<footer>
+   <div class="container-fluid">
+      <hr>
+      <div class="row">
+         <div class="col-xs-10">&copy; 2023 James D. Triveri
+            &middot; Powered by <a href="https://github.com/getpelican/pelican-themes/tree/master/pelican-bootstrap3" target="_blank">pelican-bootstrap3</a>,
+            <a href="http://docs.getpelican.com/" target="_blank">Pelican</a>,
+            <a href="http://getbootstrap.com" target="_blank">Bootstrap</a>         </div>
+         <div class="col-xs-2"><p class="pull-right"><i class="fa fa-arrow-up"></i> <a href="#">Back to top</a></p></div>
+      </div>
+   </div>
+</footer>
+<script src="./theme/js/jquery.min.js"></script>
+
+<!-- Include all compiled plugins (below), or include individual files as needed -->
+<script src="./theme/js/bootstrap.min.js"></script>
+
+<!-- Enable responsive features in IE8 with Respond.js (https://github.com/scottjehl/Respond) -->
+<script src="./theme/js/respond.min.js"></script>
+
+
+    <script src="./theme/js/bodypadding.js"></script>
+
+
+</body>
+</html>

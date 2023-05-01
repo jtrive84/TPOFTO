@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en" prefix="og: http://ogp.me/ns# fb: https://www.facebook.com/2008/fbml">
+<head>
+    <title>Querying SQL Server from R on Windows - The Pleasure of Finding Things Out</title>
+    <!-- Using the latest rendering mode for IE -->
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+
+
+<link rel="canonical" href="./querying-sql-server-from-r-on-windows.html">
+
+        <meta name="author" content="James D. Triveri" />
+        <meta name="keywords" content="R" />
+        <meta name="description" content="Querying SQL Server from R on Windows" />
+
+        <meta property="og:site_name" content="The Pleasure of Finding Things Out" />
+        <meta property="og:type" content="article"/>
+        <meta property="og:title" content="Querying SQL Server from R on Windows"/>
+        <meta property="og:url" content="./querying-sql-server-from-r-on-windows.html"/>
+        <meta property="og:description" content="Querying SQL Server from R on Windows"/>
+        <meta property="article:published_time" content="2023-04-23" />
+            <meta property="article:section" content="R" />
+            <meta property="article:tag" content="R" />
+            <meta property="article:author" content="James D. Triveri" />
+
+
+
+    <!-- Bootstrap -->
+        <link rel="stylesheet" href="./theme/css/bootstrap.Yeti.min.css" type="text/css"/>
+    <link href="./theme/css/font-awesome.min.css" rel="stylesheet">
+
+    <link href="./theme/css/pygments/default.css" rel="stylesheet">
+        <link href="./theme/css/typogrify.css" rel="stylesheet">
+    <link rel="stylesheet" href="./theme/css/style.css" type="text/css"/>
+        <link href="./static/css/custom.css" rel="stylesheet">
+
+
+
+
+</head>
+<body>
+
+<div class="navbar navbar-inverse navbar-fixed-top" role="navigation">
+    <div class="container-fluid">
+        <div class="navbar-header">
+            <button type="button" class="navbar-toggle" data-toggle="collapse" data-target=".navbar-ex1-collapse">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            <a href="./" class="navbar-brand">
+The Pleasure of Finding Things Out            </a>
+        </div>
+        <div class="collapse navbar-collapse navbar-ex1-collapse">
+            <ul class="nav navbar-nav">
+                         <li><a href="./pages/about-me.html">
+                             About&nbsp;Me
+                          </a></li>
+                        <li >
+                            <a href="./category/machine-learning.html">Machine learning</a>
+                        </li>
+                        <li >
+                            <a href="./category/python.html">Python</a>
+                        </li>
+                        <li class="active">
+                            <a href="./category/r.html">R</a>
+                        </li>
+                        <li >
+                            <a href="./category/statistical-modeling.html">Statistical modeling</a>
+                        </li>
+            </ul>
+            <ul class="nav navbar-nav navbar-right">
+            </ul>
+        </div>
+        <!-- /.navbar-collapse -->
+    </div>
+</div> <!-- /.navbar -->
+
+<!-- Banner -->
+<!-- End Banner -->
+
+<!-- Content Container -->
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-sm-9">
+    <section id="content">
+        <article>
+            <header class="page-header">
+                <h1>
+                    <a href="./querying-sql-server-from-r-on-windows.html"
+                       rel="bookmark"
+                       title="Permalink to Querying SQL Server from R on Windows">
+                        Querying <span class="caps">SQL</span> Server from R on&nbsp;Windows
+                    </a>
+                </h1>
+            </header>
+            <div class="entry-content">
+                <div class="panel">
+                    <div class="panel-body">
+<footer class="post-info">
+    <span class="label label-default">Date</span>
+    <span class="published">
+        <i class="fa fa-calendar"></i><time datetime="2023-04-23T00:00:00-05:00"> 2023-04-23</time>
+    </span>
+
+
+
+
+
+<span class="label label-default">Tags</span>
+	<a href="./tag/r.html">R</a>
+    
+</footer><!-- /.post-info -->                    </div>
+                </div>
+                <p>Windows typically comes preinstalled with a number of different <span class="caps">SQL</span> Server drivers. To find the drivers available on your 
+system, open the Windows run dialouge (<span class="caps">CRTL</span> + R), and type <em>odbcad32</em>. In the rendered <span class="caps">GUI</span>, select <em>Drivers</em>, and look for 
+<span class="caps">SQL</span> Server-related entries. 
+For the purpose of this article we&#8217;ll use the most generic driver, <code>"SQL Server"</code>, which should work independent of version&nbsp;number. </p>
+<p>In what follows, we create a connection to a <span class="caps">SQL</span> Server database, and query&nbsp;SAMPLE_TABLE.</p>
+<div class="highlight"><pre><span></span><code><span class="nf">library</span><span class="p">(</span><span class="s">&quot;data.table&quot;</span><span class="p">)</span>
+<span class="nf">library</span><span class="p">(</span><span class="s">&quot;DBI&quot;</span><span class="p">)</span>
+<span class="nf">library</span><span class="p">(</span><span class="s">&quot;odbc&quot;</span><span class="p">)</span>
+
+<span class="c1"># Connection details.</span>
+<span class="n">DRIVER</span><span class="w">   </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;SQL Server&quot;</span>
+<span class="n">SERVER</span><span class="w">   </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;SERVER&quot;</span>
+<span class="n">DATABASE</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;DATABASE&quot;</span>
+
+<span class="c1"># Create connection string.</span>
+<span class="n">connStr</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">paste0</span><span class="p">(</span>
+<span class="w">    </span><span class="s">&quot;driver={&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">DRIVER</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;};server=&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">SERVER</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;;database=&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">DATABASE</span><span class="p">,</span><span class="w"> </span>
+<span class="w">    </span><span class="s">&quot;;trusted_connection=yes;&quot;</span>
+<span class="w">    </span><span class="p">)</span>
+
+<span class="c1"># Initialize connection.</span>
+<span class="n">dbConn</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">dbConnect</span><span class="p">(</span><span class="n">odbc</span><span class="o">::</span><span class="nf">odbc</span><span class="p">(),</span><span class="w"> </span><span class="n">.connection_string</span><span class="o">=</span><span class="n">connStr</span><span class="p">)</span>
+</code></pre></div>
+
+<p>Instead of remembering how to create this connection string each time, we can encapsulate the logic within a function, 
+which we identify as <code>getDBConn</code>:</p>
+<div class="highlight"><pre><span></span><code><span class="nt">getDBConn</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nt">function</span><span class="o">(</span><span class="nt">driver</span><span class="o">,</span><span class="w"> </span><span class="nt">server</span><span class="o">,</span><span class="w"> </span><span class="nt">dbname</span><span class="o">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="err">#</span><span class="w"> </span><span class="err">------------------------------------------------------------------</span>
+<span class="w">    </span><span class="err">#</span><span class="w"> </span><span class="err">Create</span><span class="w"> </span><span class="err">connection</span><span class="w"> </span><span class="err">to</span><span class="w"> </span><span class="err">SQL</span><span class="w"> </span><span class="err">Server</span><span class="w"> </span><span class="err">database.</span><span class="w"> </span><span class="err">Requires</span><span class="w"> </span><span class="err">odbc</span><span class="w"> </span><span class="err">library.</span><span class="w"> </span><span class="err">|</span>
+<span class="w">    </span><span class="err">#</span><span class="w">                                                                  </span><span class="err">|</span>
+<span class="w">    </span><span class="err">#</span><span class="w"> </span><span class="n">driver</span><span class="p">:</span><span class="w"> </span><span class="n">character</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">SQL</span><span class="w"> </span><span class="n">Server</span><span class="w"> </span><span class="n">driver</span><span class="w"> </span><span class="n">specification</span><span class="o">.</span><span class="w">             </span><span class="o">|</span>
+<span class="w">    </span><span class="err">#</span><span class="w"> </span><span class="n">server</span><span class="o">:</span><span class="w"> </span><span class="n">character</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">Server</span><span class="w"> </span><span class="n">name</span><span class="w"> </span><span class="n">which</span><span class="w"> </span><span class="n">hosts</span><span class="w"> </span><span class="n">target</span><span class="w"> </span><span class="n">database</span><span class="o">.</span><span class="w">     </span><span class="o">|</span>
+<span class="w">    </span><span class="err">#</span><span class="w"> </span><span class="n">dbname</span><span class="o">:</span><span class="w"> </span><span class="n">character</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">Database</span><span class="w"> </span><span class="n">name</span><span class="o">.</span><span class="w">                               </span><span class="o">|</span><span class="w">  </span>
+<span class="w">    </span><span class="err">#</span><span class="w">                                                                  </span><span class="o">|</span><span class="w">    </span>
+<span class="w">    </span><span class="err">#</span><span class="w"> </span><span class="n">Returns</span><span class="o">:</span><span class="w"> </span><span class="n">DB</span><span class="w"> </span><span class="n">connection</span><span class="w"> </span><span class="n">object</span><span class="o">.</span><span class="w">                                   </span><span class="o">|</span><span class="w">  </span>
+<span class="w">    </span><span class="err">#</span><span class="w"> </span><span class="o">------------------------------------------------------------------</span>
+<span class="w">    </span><span class="n">connStr</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">paste0</span><span class="p">(</span>
+<span class="w">        </span><span class="s2">&quot;driver={&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">driver</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;};server=&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">server</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;;database=&quot;</span><span class="p">,</span><span class="w"> </span>
+<span class="w">        </span><span class="n">dbname</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;;trusted_connection=yes;&quot;</span>
+<span class="w">        </span><span class="p">)</span>
+<span class="w">    </span><span class="n">dbConn</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">dbConnect</span><span class="p">(</span>
+<span class="w">        </span><span class="n">odbc</span><span class="err">::</span><span class="nf">odbc</span><span class="p">(),</span><span class="w"> </span><span class="err">.</span><span class="n">connection_string</span><span class="err">=</span><span class="n">connStr</span>
+<span class="w">        </span><span class="p">)</span>
+<span class="w">    </span><span class="nf">return</span><span class="p">(</span><span class="n">dbConn</span><span class="p">)</span>
+<span class="p">}</span>
+</code></pre></div>
+
+<p>Then, to invoke <code>getDBConn</code>, simply pass the desired driver, server and dbname as arguments to the function as&nbsp;follows:</p>
+<div class="highlight"><pre><span></span><code><span class="o">&gt;</span><span class="w"> </span><span class="n">dbConn</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">getDBConn</span><span class="p">(</span><span class="n">driver</span><span class="o">=</span><span class="s">&quot;SQL Server&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">server</span><span class="o">=</span><span class="s">&quot;dnsdbentrep01p&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">dbname</span><span class="o">=</span><span class="s">&quot;User_ActuarialPilot&quot;</span><span class="p">)</span>
+</code></pre></div>
+
+<h2>Retrieving Data from <span class="caps">SQL</span> Server&nbsp;Database</h2>
+<p>Retrieving data from <span class="caps">SQL</span> Server is straightforward, and mirrors the <span class="caps">API</span> of many other R <span class="caps">DBI</span>-compliant database packages, 
+such as SQLite, ROracle, etc. In the following example, we retrieve data from SAMPLE_TABLE table which resides in <span class="caps">DATABASE</span>. </p>
+<div class="highlight"><pre><span></span><code><span class="nf">library</span><span class="p">(</span><span class="s">&quot;data.table&quot;</span><span class="p">)</span>
+<span class="nf">library</span><span class="p">(</span><span class="s">&quot;DBI&quot;</span><span class="p">)</span>
+<span class="nf">library</span><span class="p">(</span><span class="s">&quot;odbc&quot;</span><span class="p">)</span>
+
+<span class="c1"># Connection details.</span>
+<span class="n">DRIVER</span><span class="w">   </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;SQL Server&quot;</span>
+<span class="n">SERVER</span><span class="w">   </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;SERVER&quot;</span>
+<span class="n">DATABASE</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;DATABASE&quot;</span>
+
+<span class="c1"># Initialize connection.</span>
+<span class="n">dbConn</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">getDBConn</span><span class="p">(</span><span class="n">driver</span><span class="o">=</span><span class="n">DRIVER</span><span class="p">,</span><span class="w"> </span><span class="n">server</span><span class="o">=</span><span class="n">SERVER</span><span class="p">,</span><span class="w"> </span><span class="n">dbname</span><span class="o">=</span><span class="n">DATABASE</span><span class="p">)</span>
+<span class="n">SQLStr</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;SELECT * FROM SAMPLE_TABLE&quot;</span>
+<span class="n">DF</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">setDT</span><span class="p">(</span><span class="nf">dbGetQuery</span><span class="p">(</span><span class="n">dbConn</span><span class="p">,</span><span class="w"> </span><span class="n">SQLStr</span><span class="p">))</span>
+</code></pre></div>
+
+<p>Note that the result returned by <code>dbGetQuery</code> is a data.frame. We wrap the result in <code>setDT</code>, which transforms the object 
+to a data.table. Viewing the first few records&nbsp;yields:</p>
+<div class="highlight"><pre><span></span><code>   DISTRICT  GROUP   AGE HOLDERS CLAIMS
+1:        1    &lt;1l   &lt;25     197     38
+2:        1    &lt;1l 25-29     264     35
+3:        1    &lt;1l 30-35     246     20
+4:        1    &lt;1l   &gt;35    1680    156
+5:        1 1-1.5l   &lt;25     284     63
+6:        1 1-1.5l 25-29     536     84
+</code></pre></div>
+
+<h2>Exporting Data from R to <span class="caps">SQL</span>&nbsp;Server</h2>
+<p>The primary function that handles table uploads is <code>dbWriteTable</code>. Assume we want to append a timestamp to the table 
+retrieved in the previous example, and then push it back to the database. We&#8217;d also like to check the return code to 
+determine whether or not the export was successful. This can be accomplished as&nbsp;follows:</p>
+<div class="highlight"><pre><span></span><code><span class="c1"># Starting point is DF from previous example. dbConn is same as before. </span>
+<span class="n">TABLENAME</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;SAMPLE_TABLE2&quot;</span>
+
+<span class="n">DF</span><span class="p">[,</span><span class="n">TIMESTAMP</span><span class="o">:=</span><span class="nf">format</span><span class="p">(</span><span class="nf">Sys.time</span><span class="p">(),</span><span class="w"> </span><span class="s">&quot;%Y%m%d %H:%M:%S&quot;</span><span class="p">)]</span>
+
+<span class="n">returnCode</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">dbWriteTable</span><span class="p">(</span><span class="n">conn</span><span class="o">=</span><span class="n">dbconn</span><span class="p">,</span><span class="w"> </span><span class="n">TABLENAME</span><span class="p">,</span><span class="w"> </span><span class="n">DF</span><span class="p">,</span><span class="w"> </span><span class="n">overwrite</span><span class="o">=</span><span class="kc">TRUE</span><span class="p">)</span>
+
+<span class="nf">if </span><span class="p">(</span><span class="n">returnCode</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nf">message</span><span class="p">(</span><span class="s">&quot;[&quot;</span><span class="p">,</span><span class="w"> </span><span class="nf">Sys.time</span><span class="p">(),</span><span class="w"> </span><span class="s">&quot;] Table successfully exported.&quot;</span><span class="p">)</span>
+<span class="p">}</span><span class="w"> </span><span class="n">else</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nf">message</span><span class="p">(</span><span class="s">&quot;[&quot;</span><span class="p">,</span><span class="w"> </span><span class="nf">Sys.time</span><span class="p">(),</span><span class="w"> </span><span class="s">&quot;] An error occurred exporting &quot;</span><span class="p">,</span><span class="w"> </span><span class="n">TABLENAME</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;.&quot;</span><span class="p">)</span>
+<span class="p">}</span>
+</code></pre></div>
+
+<p>In the call to <code>dbWriteTable</code>, we specified <code>overwrite=TRUE</code>. If a table with the same name exists in the target database, 
+it will be&nbsp;overwritten.</p>
+            </div>
+            <!-- /.entry-content -->
+        </article>
+    </section>
+
+        </div>
+        <div class="col-sm-3" id="sidebar">
+            <aside>
+<div id="aboutme">
+        <p>
+            <img width="100%" class="img-thumbnail" src="./images/JDTGOOG.JPG"/>
+        </p>
+    <p>
+      <strong>About James D. Triveri</strong><br/>
+        Data Scientist interested in ML/DL, automation and scientific computing.
+    </p>
+</div><!-- Sidebar -->
+<section class="well well-sm">
+  <ul class="list-group list-group-flush">
+
+<!-- Sidebar/Links -->
+<li class="list-group-item">
+  <h4><i class="fa fa-external-link-square fa-lg"></i><span class="icon-label">Links</span></h4>
+  <ul class="list-group" id="links">
+    <li class="list-group-item">
+      <a href="http://python.org/" target="_blank">Python.org</a>
+    </li>
+    <li class="list-group-item">
+      <a href="https://docs.python.org/3/py-modindex.html" target="_blank">The Python Module Index</a>
+    </li>
+    <li class="list-group-item">
+      <a href="https://scikit-learn.org/stable/documentation.html" target="_blank">Scikit-Learn</a>
+    </li>
+    <li class="list-group-item">
+      <a href="https://www.scipy.org/docs.html" target="_blank">Scipy Docs</a>
+    </li>
+    <li class="list-group-item">
+      <a href="https://openai.com/" target="_blank">OpenAI</a>
+    </li>
+  </ul>
+</li>
+<!-- End Sidebar/Links -->
+
+<!-- Sidebar/Images -->
+<li class="list-group-item">
+  <ul class="list-group" id="links">
+    <img width="100%" class="img-thumbnail" src="images/Sidebar/sidebarA.jpg"/>
+    <img width="100%" class="img-thumbnail" src="images/Sidebar/sidebarB.png"/>
+    <img width="100%" class="img-thumbnail" src="images/Sidebar/sidebarC.jpg"/>
+    <img width="100%" class="img-thumbnail" src="images/Sidebar/sidebarD.jpg"/>
+  </ul>
+</li>
+<!-- End Sidebar/Images -->
+  </ul>
+</section>
+<!-- End Sidebar -->            </aside>
+        </div>
+    </div>
+</div>
+<!-- End Content Container -->
+
+<footer>
+   <div class="container-fluid">
+      <hr>
+      <div class="row">
+         <div class="col-xs-10">&copy; 2023 James D. Triveri
+            &middot; Powered by <a href="https://github.com/getpelican/pelican-themes/tree/master/pelican-bootstrap3" target="_blank">pelican-bootstrap3</a>,
+            <a href="http://docs.getpelican.com/" target="_blank">Pelican</a>,
+            <a href="http://getbootstrap.com" target="_blank">Bootstrap</a>         </div>
+         <div class="col-xs-2"><p class="pull-right"><i class="fa fa-arrow-up"></i> <a href="#">Back to top</a></p></div>
+      </div>
+   </div>
+</footer>
+<script src="./theme/js/jquery.min.js"></script>
+
+<!-- Include all compiled plugins (below), or include individual files as needed -->
+<script src="./theme/js/bootstrap.min.js"></script>
+
+<!-- Enable responsive features in IE8 with Respond.js (https://github.com/scottjehl/Respond) -->
+<script src="./theme/js/respond.min.js"></script>
+
+
+    <script src="./theme/js/bodypadding.js"></script>
+
+
+</body>
+</html>

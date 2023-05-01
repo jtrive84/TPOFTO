@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="en" prefix="og: http://ogp.me/ns# fb: https://www.facebook.com/2008/fbml">
+<head>
+    <title>Expectation Maximization from Scratch in R - The Pleasure of Finding Things Out</title>
+    <!-- Using the latest rendering mode for IE -->
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+
+
+<link rel="canonical" href="./expectation-maximization-from-scratch-in-r.html">
+
+        <meta name="author" content="James D. Triveri" />
+        <meta name="keywords" content="Machine Learning,R" />
+        <meta name="description" content="Expectation maximization from scratch in R" />
+
+        <meta property="og:site_name" content="The Pleasure of Finding Things Out" />
+        <meta property="og:type" content="article"/>
+        <meta property="og:title" content="Expectation Maximization from Scratch in R"/>
+        <meta property="og:url" content="./expectation-maximization-from-scratch-in-r.html"/>
+        <meta property="og:description" content="Expectation maximization from scratch in R"/>
+        <meta property="article:published_time" content="2023-04-23" />
+            <meta property="article:section" content="Machine Learning" />
+            <meta property="article:tag" content="Machine Learning" />
+            <meta property="article:tag" content="R" />
+            <meta property="article:author" content="James D. Triveri" />
+
+
+
+    <!-- Bootstrap -->
+        <link rel="stylesheet" href="./theme/css/bootstrap.Yeti.min.css" type="text/css"/>
+    <link href="./theme/css/font-awesome.min.css" rel="stylesheet">
+
+    <link href="./theme/css/pygments/default.css" rel="stylesheet">
+        <link href="./theme/css/typogrify.css" rel="stylesheet">
+    <link rel="stylesheet" href="./theme/css/style.css" type="text/css"/>
+        <link href="./static/css/custom.css" rel="stylesheet">
+
+
+
+
+</head>
+<body>
+
+<div class="navbar navbar-inverse navbar-fixed-top" role="navigation">
+    <div class="container-fluid">
+        <div class="navbar-header">
+            <button type="button" class="navbar-toggle" data-toggle="collapse" data-target=".navbar-ex1-collapse">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            <a href="./" class="navbar-brand">
+The Pleasure of Finding Things Out            </a>
+        </div>
+        <div class="collapse navbar-collapse navbar-ex1-collapse">
+            <ul class="nav navbar-nav">
+                         <li><a href="./pages/about-me.html">
+                             About&nbsp;Me
+                          </a></li>
+                        <li class="active">
+                            <a href="./category/machine-learning.html">Machine learning</a>
+                        </li>
+                        <li >
+                            <a href="./category/python.html">Python</a>
+                        </li>
+                        <li >
+                            <a href="./category/r.html">R</a>
+                        </li>
+                        <li >
+                            <a href="./category/statistical-modeling.html">Statistical modeling</a>
+                        </li>
+            </ul>
+            <ul class="nav navbar-nav navbar-right">
+            </ul>
+        </div>
+        <!-- /.navbar-collapse -->
+    </div>
+</div> <!-- /.navbar -->
+
+<!-- Banner -->
+<!-- End Banner -->
+
+<!-- Content Container -->
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-sm-9">
+    <section id="content">
+        <article>
+            <header class="page-header">
+                <h1>
+                    <a href="./expectation-maximization-from-scratch-in-r.html"
+                       rel="bookmark"
+                       title="Permalink to Expectation Maximization from Scratch in R">
+                        Expectation Maximization from Scratch in&nbsp;R
+                    </a>
+                </h1>
+            </header>
+            <div class="entry-content">
+                <div class="panel">
+                    <div class="panel-body">
+<footer class="post-info">
+    <span class="label label-default">Date</span>
+    <span class="published">
+        <i class="fa fa-calendar"></i><time datetime="2023-04-23T00:00:00-05:00"> 2023-04-23</time>
+    </span>
+
+
+
+
+
+<span class="label label-default">Tags</span>
+	<a href="./tag/machine-learning.html">Machine Learning</a>
+        /
+	<a href="./tag/r.html">R</a>
+    
+</footer><!-- /.post-info -->                    </div>
+                </div>
+                <p>Lets create a dataset which appears to be a mixture of two separate distributions. Such a dataset can be created using the 
+following&nbsp;code:</p>
+<div class="highlight"><pre><span></span><code><span class="c1"># Creating simulated bimodal data observations.</span>
+<span class="nf">options</span><span class="p">(</span><span class="n">scipen</span><span class="o">=</span><span class="m">9999</span><span class="p">)</span>
+<span class="nf">set.seed</span><span class="p">(</span><span class="m">516</span><span class="p">)</span>
+
+<span class="n">x</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">c</span><span class="p">(</span>
+<span class="w">    </span><span class="nf">rnorm</span><span class="p">(</span><span class="m">31</span><span class="p">,</span><span class="w"> </span><span class="n">mean</span><span class="o">=</span><span class="m">75</span><span class="p">,</span><span class="w"> </span><span class="n">sd</span><span class="o">=</span><span class="m">17.5</span><span class="p">)</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="nf">rnorm</span><span class="p">(</span><span class="m">31</span><span class="p">,</span><span class="w"> </span><span class="n">mean</span><span class="o">=</span><span class="m">0</span><span class="p">,</span><span class="w"> </span><span class="n">sd</span><span class="o">=</span><span class="m">5.5</span><span class="p">),</span><span class="w"> </span>
+<span class="w">    </span><span class="nf">rnorm</span><span class="p">(</span><span class="m">23</span><span class="p">,</span><span class="w"> </span><span class="n">mean</span><span class="o">=</span><span class="m">175</span><span class="p">,</span><span class="w"> </span><span class="n">sd</span><span class="o">=</span><span class="m">25</span><span class="p">)</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="nf">rnorm</span><span class="p">(</span><span class="m">23</span><span class="p">,</span><span class="w"> </span><span class="n">mean</span><span class="o">=</span><span class="m">0</span><span class="p">,</span><span class="w"> </span><span class="n">sd</span><span class="o">=</span><span class="m">10</span><span class="p">)</span>
+<span class="w">    </span><span class="p">)</span>
+</code></pre></div>
+
+<p>Running <code>plot(density(x))</code> generates a plot of the kernel density&nbsp;estimate:</p>
+<p><img alt="em1" src="https://drive.google.com/uc?export=view&amp;id=1VTMblFIYe_njsZgMEkLb86YzqhQZWKgM"></p>
+<p>Our goal is to fit a 2-component Gaussian Mixture Model (<span class="caps">GMM</span>) to a dataset consisting of $N$ observations using Expectation Maximization with parameters $\mu_{k}, \sigma_{k}, \pi_{k}$ where $k \in [1,&nbsp;2]$. </p>
+<p>The probability density of a K-component <span class="caps">GMM</span> is given&nbsp;by</p>
+<p>$$
+f(\boldsymbol{x}) = \sum_{k=1}^{K}\pi_{k} \cdot \mathcal{N}(\boldsymbol{x}| \mu_{k}, \sigma^2_{k}),&nbsp;$$</p>
+<p>where in the 2 component case, $K=2$ (however, expressions will be in terms of $K$ for generality). From the density, an expression for the log-likelihood immediately&nbsp;follows:</p>
+<p>$$
+\mathrm{Ln}\hspace{.10em}f(X|\pi, \mu, \sigma) = \sum_{j=1}^{N}\mathrm{Ln}\hspace{.10em} \Big[\sum_{k=1}^{K} \pi_{k} \cdot\mathcal{N}(\boldsymbol{x}| \mu_k, \sigma^2_k)\Big].&nbsp;$$</p>
+<p>In the log-likelihood, $\mu_{k}$, $\sigma_{k}$ and $\pi_{k}$ represent the mean, standard deviation and mixture coefficient respectively for component $k$. The inner summation (indexed by $k$) iterates over mixture components while the outer summation (indexed by $j$) iterates over each observation in the data. Note that for each component $k$, $0 &lt;= \pi_{k} &lt;= 1$, and for a $K$-component <span class="caps">GMM</span>, vectors $\boldsymbol{\mu}$, $\boldsymbol{\sigma}$ and $\boldsymbol{\pi}$ will each have length&nbsp;$K$.</p>
+<p>Taking the derivative of the log-likelihood w.r.t. $\boldsymbol{\mu}$, $\boldsymbol{\sigma}$ and $\boldsymbol{\pi}$,
+setting equal to zero and re-arranging yields update expressions for the parameters of&nbsp;interest:</p>
+<p>For the mean of component $k$,&nbsp;$\mu^{&#8216;}_{k}$:</p>
+<p>$$
+\mu^{&#8216;}<em j="1">{k} = \sum</em>^{N} \frac{x_{j} \cdot \pi_{k}  \cdot \mathcal{N}(x_{j}| \mu_{k}, \sigma^2_{k})} {\pi_{k} \cdot \mathcal{N}(x_{j}| \mu_{k}, \sigma^2_{k})}&nbsp;$$</p>
+<p>For the standard deviation of component $k$,&nbsp;$\sigma^{&#8216;}_{k}$:</p>
+<p>$$
+\sigma^{&#8216;}<em j="1">{k} =  \sqrt{\sum</em>^{N} \frac{(x_{j} - \mu^{&#8216;}<em k>{k})^{2} \cdot \pi</em> \cdot \mathcal{N}(x_{j}| \mu_{k}, \sigma^2_r)} {\pi_{k} \cdot \mathcal{N}(x_{j}| \mu_k, \sigma^2_k)}}&nbsp;$$</p>
+<p>For the mixture probability of component $k$, $\pi_{k}$, first note that the posterior probability of a single observation $x$ originating from component $k=z$ is given&nbsp;by </p>
+<p>$$
+f(z|x) = \frac{f(k=z) \cdot f(x|k=z)}{\sum f(k) \cdot f(x|k)} = \frac{\pi_{z} \cdot \mathcal{N}(x| \mu_{z}, \sigma^{2}<em k="1">{z})}{\sum</em>^{K} \pi_{k} \cdot \mathcal{N}(x| \mu_{k}, \sigma^{2}_{k})}.&nbsp;$$</p>
+<p>$\pi^{&#8216;}_{k}$ is updated by aggregating the probabilities for component $k$ across all observations, then dividing by the total number of&nbsp;observations:</p>
+<p>$$
+\pi^{&#8216;}<em j="1">{k} = \frac{1}{N}\sum</em>^{N} f(k|x_{j}) = \frac{1}{N}\sum_{j=1}^{N} \frac{\pi_{k} \cdot \mathcal{N}(x_{j}| \mu^{&#8216;}<em r="1">k, \sigma^{2*}_k)}{\sum</em>^K \pi_{r} \cdot \mathcal{N}(x_{j}| \mu^{&#8216;}<em r>{r}, \sigma^{2&#8217;}</em>)}&nbsp;$$</p>
+<p>We can summarize Expectation Maximization as&nbsp;follows:</p>
+<ol>
+<li>
+<p>(E-step): Using current parameter values $(\mu_{k}, \sigma_{k}, \pi_{k})$, estimate the posterior probabilities of each mixture component&nbsp;$\pi^{&#8216;}_{k}$. </p>
+</li>
+<li>
+<p>(M-step): Using updated posterior probabilities, re-estimate component means and standard 
+deviations $\mu^{&#8216;}<em k>{k}$, $\sigma^{&#8216;}</em>$.</p>
+</li>
+</ol>
+<p><br></p>
+<h3>Implementation</h3>
+<p>The code that follows represents an implementation of the Expectation Maximization algorithm for a two-component Gaussian Mixture Model. The initial estimates of $\mu$, $\sigma$ and $\pi$ are obtained using k-means. We create a number of data structures to which parameter estimates and log-likelihood are saved at each iteration. Finally, parameter estimates are saved to the <code>paramsDF0</code> data.table for comparison with estimates from the mixtools&nbsp;library:</p>
+<div class="highlight"><pre><span></span><code><span class="c1"># Implementation of the Expectation Maximization algorithm. </span>
+<span class="nf">library</span><span class="p">(</span><span class="s">&quot;data.table&quot;</span><span class="p">)</span>
+<span class="nf">library</span><span class="p">(</span><span class="s">&quot;foreach&quot;</span><span class="p">)</span>
+<span class="nf">options</span><span class="p">(</span><span class="n">scipen</span><span class="o">=</span><span class="m">9999</span><span class="p">)</span>
+<span class="nf">set.seed</span><span class="p">(</span><span class="m">516</span><span class="p">)</span>
+
+<span class="c1"># Generate bimodal data to fit via GMM. </span>
+<span class="n">x</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">c</span><span class="p">(</span>
+<span class="w">    </span><span class="nf">rnorm</span><span class="p">(</span><span class="m">31</span><span class="p">,</span><span class="w"> </span><span class="n">mean</span><span class="o">=</span><span class="m">75</span><span class="p">,</span><span class="w"> </span><span class="n">sd</span><span class="o">=</span><span class="m">17.5</span><span class="p">)</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="nf">rnorm</span><span class="p">(</span><span class="m">31</span><span class="p">,</span><span class="w"> </span><span class="n">mean</span><span class="o">=</span><span class="m">0</span><span class="p">,</span><span class="w"> </span><span class="n">sd</span><span class="o">=</span><span class="m">5.5</span><span class="p">),</span>
+<span class="w">    </span><span class="nf">rnorm</span><span class="p">(</span><span class="m">23</span><span class="p">,</span><span class="w"> </span><span class="n">mean</span><span class="o">=</span><span class="m">175</span><span class="p">,</span><span class="w"> </span><span class="n">sd</span><span class="o">=</span><span class="m">25</span><span class="p">)</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="nf">rnorm</span><span class="p">(</span><span class="m">23</span><span class="p">,</span><span class="w"> </span><span class="n">mean</span><span class="o">=</span><span class="m">0</span><span class="p">,</span><span class="w"> </span><span class="n">sd</span><span class="o">=</span><span class="m">10</span><span class="p">)</span>
+<span class="w">    </span><span class="p">)</span>
+
+<span class="n">n</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">length</span><span class="p">(</span><span class="n">x</span><span class="p">)</span><span class="w">  </span><span class="c1"># Number of observations.</span>
+<span class="n">r</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="m">2</span><span class="w">          </span><span class="c1"># Number of components in Gaussian Mixture Model.</span>
+<span class="n">maxIter</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="m">500</span><span class="w">  </span><span class="c1"># Maximum number of EM iterations.</span>
+<span class="n">tol</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="m">1e-8</span><span class="w">     </span><span class="c1"># Log-likelihood exceedance threshold.</span>
+
+<span class="c1"># Use k-means to obtain initial parameter estimates.</span>
+<span class="n">km</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">kmeans</span><span class="p">(</span><span class="n">x</span><span class="p">,</span><span class="w"> </span><span class="n">r</span><span class="p">)</span>
+
+<span class="c1"># Create data.table with original observations and cluster assignments. </span>
+<span class="n">kmeansDF</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">setorder</span><span class="p">(</span>
+<span class="w">    </span><span class="nf">data.table</span><span class="p">(</span><span class="n">x</span><span class="o">=</span><span class="n">x</span><span class="p">,</span><span class="w"> </span><span class="n">group</span><span class="o">=</span><span class="n">km</span><span class="o">$</span><span class="n">cluster</span><span class="p">,</span><span class="w"> </span><span class="n">stringsAsFactors</span><span class="o">=</span><span class="kc">FALSE</span><span class="p">),</span>
+<span class="w">    </span><span class="s">&quot;group&quot;</span>
+<span class="w">    </span><span class="p">)</span>
+
+<span class="c1"># Bind reference to initial values for rmu, rsd and rpi.</span>
+<span class="n">rmu</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">kmeansDF</span><span class="p">[,</span><span class="nf">.</span><span class="p">(</span><span class="n">x</span><span class="o">=</span><span class="nf">mean</span><span class="p">(</span><span class="n">x</span><span class="p">)),</span><span class="w"> </span><span class="n">by</span><span class="o">=</span><span class="s">&quot;group&quot;</span><span class="p">]</span><span class="o">$</span><span class="n">x</span>
+<span class="n">rsd</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">kmeansDF</span><span class="p">[,</span><span class="nf">.</span><span class="p">(</span><span class="n">x</span><span class="o">=</span><span class="nf">sd</span><span class="p">(</span><span class="n">x</span><span class="p">)),</span><span class="w"> </span><span class="n">by</span><span class="o">=</span><span class="s">&quot;group&quot;</span><span class="p">]</span><span class="o">$</span><span class="n">x</span>
+<span class="n">rpi</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">kmeansDF</span><span class="p">[,</span><span class="n">.N</span><span class="p">,</span><span class="w"> </span><span class="n">by</span><span class="o">=</span><span class="s">&quot;group&quot;</span><span class="p">]</span><span class="o">$</span><span class="n">N</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="n">n</span>
+
+<span class="c1"># Collect log-likelihood and updated parameter estimates at each iteration.</span>
+<span class="n">llEM</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">rep</span><span class="p">(</span><span class="m">0</span><span class="p">,</span><span class="w"> </span><span class="n">maxIter</span><span class="p">)</span>
+<span class="n">muEM</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">matrix</span><span class="p">(</span><span class="nf">rep</span><span class="p">(</span><span class="m">0</span><span class="p">,</span><span class="w"> </span><span class="n">r</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">maxIter</span><span class="p">),</span><span class="w"> </span><span class="n">ncol</span><span class="o">=</span><span class="n">r</span><span class="p">)</span>
+<span class="n">sdEM</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">matrix</span><span class="p">(</span><span class="nf">rep</span><span class="p">(</span><span class="m">0</span><span class="p">,</span><span class="w"> </span><span class="n">r</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">maxIter</span><span class="p">),</span><span class="w"> </span><span class="n">ncol</span><span class="o">=</span><span class="n">r</span><span class="p">)</span>
+<span class="n">piEM</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">matrix</span><span class="p">(</span><span class="nf">rep</span><span class="p">(</span><span class="m">0</span><span class="p">,</span><span class="w"> </span><span class="n">r</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">maxIter</span><span class="p">),</span><span class="w"> </span><span class="n">ncol</span><span class="o">=</span><span class="n">r</span><span class="p">)</span>
+
+<span class="c1"># Initialize muEM, sdEM and piEM.</span>
+<span class="n">muEM</span><span class="p">[</span><span class="m">1</span><span class="p">,]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">rmu</span>
+<span class="n">sdEM</span><span class="p">[</span><span class="m">1</span><span class="p">,]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">rsd</span>
+<span class="n">piEM</span><span class="p">[</span><span class="m">1</span><span class="p">,]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">rpi</span>
+
+<span class="c1"># Iteration tracker.</span>
+<span class="n">jj</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="m">2</span>
+
+<span class="c1"># Expectation Maximization iteration.</span>
+<span class="c1"># All m-prefixed variables have dimension (n x r).</span>
+<span class="c1"># All r-prefixed variables have length r.</span>
+<span class="nf">while </span><span class="p">(</span><span class="n">jj</span><span class="o">&lt;=</span><span class="n">maxIter</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+
+<span class="w">    </span><span class="c1"># Expectation step. </span>
+<span class="w">    </span><span class="n">mcomp</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">foreach</span><span class="p">(</span><span class="n">ii</span><span class="o">=</span><span class="m">1</span><span class="o">:</span><span class="n">r</span><span class="p">,</span><span class="w"> </span><span class="n">.combine</span><span class="o">=</span><span class="s">&quot;cbind&quot;</span><span class="p">)</span><span class="w"> </span><span class="o">%do%</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="n">rpi</span><span class="p">[</span><span class="n">ii</span><span class="p">]</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="nf">dnorm</span><span class="p">(</span><span class="n">x</span><span class="p">,</span><span class="w"> </span><span class="n">rmu</span><span class="p">[</span><span class="n">ii</span><span class="p">],</span><span class="w"> </span><span class="n">rsd</span><span class="p">[</span><span class="n">ii</span><span class="p">])</span>
+<span class="w">    </span><span class="p">}</span>
+
+<span class="w">    </span><span class="c1"># Determine likelihood contribution for each observation.</span>
+<span class="w">    </span><span class="c1"># mcompSum is a vector of length n. </span>
+<span class="w">    </span><span class="n">mcompSum</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">apply</span><span class="p">(</span><span class="n">mcomp</span><span class="p">,</span><span class="w"> </span><span class="n">MARGIN</span><span class="o">=</span><span class="m">1</span><span class="p">,</span><span class="w"> </span><span class="n">sum</span><span class="p">,</span><span class="w"> </span><span class="n">na.rm</span><span class="o">=</span><span class="kc">TRUE</span><span class="p">)</span>
+
+<span class="w">    </span><span class="c1"># Compute mixture probabilities for each observation. Summing across</span>
+<span class="w">    </span><span class="c1"># columns, each row will equal 1.0.</span>
+<span class="w">    </span><span class="n">mpi</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">foreach</span><span class="p">(</span><span class="n">ii</span><span class="o">=</span><span class="m">1</span><span class="o">:</span><span class="nf">ncol</span><span class="p">(</span><span class="n">mcomp</span><span class="p">),</span><span class="w"> </span><span class="n">.combine</span><span class="o">=</span><span class="s">&quot;cbind&quot;</span><span class="p">)</span><span class="w"> </span><span class="o">%do%</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="n">mcomp</span><span class="p">[,</span><span class="n">ii</span><span class="p">]</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="n">mcompSum</span>
+<span class="w">    </span><span class="p">}</span>
+
+<span class="w">    </span><span class="c1"># Maximization step.</span>
+<span class="w">    </span><span class="n">rmu</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">as.numeric</span><span class="p">((</span><span class="nf">t</span><span class="p">(</span><span class="n">x</span><span class="p">)</span><span class="w"> </span><span class="o">%*%</span><span class="w"> </span><span class="n">mpi</span><span class="p">)</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="nf">apply</span><span class="p">(</span><span class="n">mpi</span><span class="p">,</span><span class="w"> </span><span class="n">MARGIN</span><span class="o">=</span><span class="m">2</span><span class="p">,</span><span class="w"> </span><span class="n">sum</span><span class="p">))</span>
+
+<span class="w">    </span><span class="n">rsd</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">foreach</span><span class="p">(</span><span class="n">ii</span><span class="o">=</span><span class="m">1</span><span class="o">:</span><span class="nf">length</span><span class="p">(</span><span class="n">rmu</span><span class="p">),</span><span class="w"> </span><span class="n">.combine</span><span class="o">=</span><span class="s">&quot;c&quot;</span><span class="p">)</span><span class="w"> </span><span class="o">%do%</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="n">denom</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">sum</span><span class="p">(</span><span class="n">mpi</span><span class="p">[,</span><span class="n">ii</span><span class="p">][</span><span class="nf">is.finite</span><span class="p">(</span><span class="n">mpi</span><span class="p">[,</span><span class="n">ii</span><span class="p">])],</span><span class="w"> </span><span class="n">na.rm</span><span class="o">=</span><span class="kc">TRUE</span><span class="p">)</span>
+<span class="w">        </span><span class="n">numer</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">mpi</span><span class="p">[,</span><span class="n">ii</span><span class="p">]</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="p">(</span><span class="n">x</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">rmu</span><span class="p">[</span><span class="n">ii</span><span class="p">])</span><span class="o">^</span><span class="m">2</span>
+<span class="w">        </span><span class="n">numer</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">sum</span><span class="p">(</span><span class="n">numer</span><span class="p">[</span><span class="nf">is.finite</span><span class="p">(</span><span class="n">numer</span><span class="p">)],</span><span class="w"> </span><span class="n">na.rm</span><span class="o">=</span><span class="kc">TRUE</span><span class="p">)</span>
+<span class="w">        </span><span class="nf">sqrt</span><span class="p">(</span><span class="n">numer</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="n">denom</span><span class="p">)</span>
+<span class="w">    </span><span class="p">}</span>
+
+<span class="w">    </span><span class="n">rpi</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">foreach</span><span class="p">(</span><span class="n">ii</span><span class="o">=</span><span class="m">1</span><span class="o">:</span><span class="nf">ncol</span><span class="p">(</span><span class="n">mpi</span><span class="p">),</span><span class="w"> </span><span class="n">.combine</span><span class="o">=</span><span class="s">&quot;c&quot;</span><span class="p">)</span><span class="w"> </span><span class="o">%do%</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nf">sum</span><span class="p">(</span><span class="n">mpi</span><span class="p">[,</span><span class="n">ii</span><span class="p">][</span><span class="nf">is.finite</span><span class="p">(</span><span class="n">mpi</span><span class="p">[,</span><span class="n">ii</span><span class="p">])],</span><span class="w"> </span><span class="n">na.rm</span><span class="o">=</span><span class="kc">TRUE</span><span class="p">)</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="n">n</span>
+<span class="w">    </span><span class="p">}</span>
+
+<span class="w">    </span><span class="c1"># Update llEM, muEM, sdEM and piEM.</span>
+<span class="w">    </span><span class="n">llEM</span><span class="p">[</span><span class="n">jj</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">sum</span><span class="p">(</span><span class="nf">log</span><span class="p">(</span><span class="n">mcompSum</span><span class="p">));</span><span class="w"> </span><span class="n">muEM</span><span class="p">[</span><span class="n">jj</span><span class="p">,]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">rmu</span><span class="p">;</span><span class="w"> </span><span class="n">sdEM</span><span class="p">[</span><span class="n">jj</span><span class="p">,]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">rsd</span><span class="p">;</span><span class="w"> </span><span class="n">piEM</span><span class="p">[</span><span class="n">jj</span><span class="p">,]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">rpi</span>
+
+<span class="w">    </span><span class="nf">message</span><span class="p">(</span>
+<span class="w">        </span><span class="s">&quot;[&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">jj</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;] ll=&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">llEM</span><span class="p">[</span><span class="n">jj</span><span class="p">],</span><span class="w"> </span><span class="s">&quot; (dll=&quot;</span><span class="p">,</span><span class="w"> </span><span class="nf">abs</span><span class="p">(</span><span class="n">llEM</span><span class="p">[</span><span class="n">jj</span><span class="p">]</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">llEM</span><span class="p">[</span><span class="n">jj</span><span class="m">-1</span><span class="p">]),</span><span class="w"> </span><span class="s">&quot;).&quot;</span>
+<span class="w">        </span><span class="p">)</span>
+
+<span class="w">    </span><span class="nf">if </span><span class="p">(</span><span class="nf">abs</span><span class="p">(</span><span class="n">llEM</span><span class="p">[</span><span class="n">jj</span><span class="p">]</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">llEM</span><span class="p">[</span><span class="n">jj</span><span class="m">-1</span><span class="p">])</span><span class="o">&lt;</span><span class="n">tol</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="n">break</span>
+<span class="w">    </span><span class="p">}</span>
+
+<span class="w">    </span><span class="n">jj</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">jj</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="m">1</span>
+<span class="p">}</span>
+
+<span class="c1"># Extract last populated row from muEM, sdEM and piEM.</span>
+<span class="n">paramsDF0</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">rbindlist</span><span class="p">(</span>
+<span class="w">    </span><span class="nf">list</span><span class="p">(</span>
+<span class="w">        </span><span class="nf">data.table</span><span class="p">(</span>
+<span class="w">            </span><span class="n">parameter</span><span class="o">=</span><span class="s">&quot;mean&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">w</span><span class="o">=</span><span class="nf">seq</span><span class="p">(</span><span class="nf">length</span><span class="p">(</span><span class="n">muEM</span><span class="p">[</span><span class="n">jj</span><span class="p">,])),</span><span class="w"> </span><span class="n">value</span><span class="o">=</span><span class="n">muEM</span><span class="p">[</span><span class="n">jj</span><span class="p">,],</span>
+<span class="w">            </span><span class="n">stringsAsFactors</span><span class="o">=</span><span class="kc">FALSE</span>
+<span class="w">            </span><span class="p">),</span>
+<span class="w">         </span><span class="nf">data.table</span><span class="p">(</span>
+<span class="w">            </span><span class="n">parameter</span><span class="o">=</span><span class="s">&quot;sd&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">w</span><span class="o">=</span><span class="nf">seq</span><span class="p">(</span><span class="nf">length</span><span class="p">(</span><span class="n">sdEM</span><span class="p">[</span><span class="n">jj</span><span class="p">,])),</span><span class="w"> </span><span class="n">value</span><span class="o">=</span><span class="n">sdEM</span><span class="p">[</span><span class="n">jj</span><span class="p">,],</span>
+<span class="w">            </span><span class="n">stringsAsFactors</span><span class="o">=</span><span class="kc">FALSE</span>
+<span class="w">            </span><span class="p">),</span>
+<span class="w">         </span><span class="nf">data.table</span><span class="p">(</span>
+<span class="w">            </span><span class="n">parameter</span><span class="o">=</span><span class="s">&quot;w&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">w</span><span class="o">=</span><span class="nf">seq</span><span class="p">(</span><span class="nf">length</span><span class="p">(</span><span class="n">piEM</span><span class="p">[</span><span class="n">jj</span><span class="p">,])),</span><span class="w"> </span><span class="n">value</span><span class="o">=</span><span class="n">piEM</span><span class="p">[</span><span class="n">jj</span><span class="p">,],</span>
+<span class="w">            </span><span class="n">stringsAsFactors</span><span class="o">=</span><span class="kc">FALSE</span>
+<span class="w">            </span><span class="p">)</span>
+<span class="w">        </span><span class="p">),</span><span class="w"> </span><span class="n">fill</span><span class="o">=</span><span class="kc">TRUE</span>
+<span class="w">    </span><span class="p">)</span>
+
+<span class="n">paramsDF0</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">dcast</span><span class="p">(</span>
+<span class="w">    </span><span class="n">paramsDF0</span><span class="p">,</span><span class="w"> </span><span class="n">parameter</span><span class="w"> </span><span class="o">~</span><span class="w"> </span><span class="nf">paste0</span><span class="p">(</span><span class="s">&quot;w_&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">w</span><span class="p">),</span><span class="w"> </span><span class="n">fun.aggregate</span><span class="o">=</span><span class="n">sum</span><span class="p">,</span><span class="w"> </span>
+<span class="w">    </span><span class="n">value.var</span><span class="o">=</span><span class="s">&quot;value&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">fill</span><span class="o">=</span><span class="kc">NA_real_</span>
+<span class="w">    </span><span class="p">)</span>
+</code></pre></div>
+
+<p>The code generates a status message at each iteration indicating the current log-likelihood estimate (<code>ll</code>) as well as 
+the change in log-likelihood from the previous estimate (<code>dll</code>). Results are given&nbsp;below. </p>
+<div class="highlight"><pre><span></span><code>[2] ll=-276.872839784171 (dll=276.872839784171).
+[3] ll=-276.8390507688 (dll=0.0337890153707576).
+[4] ll=-276.83590305353 (dll=0.0031477152705861).
+[5] ll=-276.835432239165 (dll=0.000470814365030492).
+[6] ll=-276.835356881754 (dll=0.0000753574105374355).
+[7] ll=-276.835344544138 (dll=0.0000123376157148414).
+[8] ll=-276.835342506099 (dll=0.00000203803961085214).
+[9] ll=-276.835342168222 (dll=0.000000337876826961292).
+[10] ll=-276.835342112125 (dll=0.0000000560970079277467).
+[11] ll=-276.835342102806 (dll=0.00000000931919430513517).
+</code></pre></div>
+
+<p><code>paramsDF0</code> reflects the final estimates of $\mu_{i}$, $\sigma_{i}$ and&nbsp;$\pi_{i}$:</p>
+<div class="highlight"><pre><span></span><code>&gt; paramsDF0
+   parameter         w_1        w_2
+1:      mean 181.2244438 81.7632674
+2:        sd  30.6704024 16.0083545
+3:         w   0.4325322  0.5674678
+</code></pre></div>
+
+<p><br></p>
+<h3>Comparison with mixtools&nbsp;Library</h3>
+<p><em>mixtools</em> is a third-party R library used to estimate Gaussian Mixture Models. Using out data and initial estimates of $\mu$, $\sigma$ and $\pi$, let&#8217;s compare the results of our implementation vs. the <code>normalmixEM</code> function provided by&nbsp;mixtools:</p>
+<div class="highlight"><pre><span></span><code><span class="nf">library</span><span class="p">(</span><span class="s">&quot;data.table&quot;</span><span class="p">)</span>
+<span class="nf">library</span><span class="p">(</span><span class="s">&quot;mixtools&quot;</span><span class="p">)</span>
+
+<span class="n">gmm</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">normalmixEM</span><span class="p">(</span>
+<span class="w">    </span><span class="n">x</span><span class="p">,</span><span class="w"> </span><span class="n">k</span><span class="o">=</span><span class="m">2</span><span class="p">,</span><span class="w"> </span><span class="n">lambda</span><span class="o">=</span><span class="n">piEM</span><span class="p">[</span><span class="m">1</span><span class="p">,],</span><span class="w"> </span><span class="n">mu</span><span class="o">=</span><span class="n">muEM</span><span class="p">[</span><span class="m">1</span><span class="p">,],</span><span class="n">sigma</span><span class="o">=</span><span class="n">sdEM</span><span class="p">[</span><span class="m">1</span><span class="p">,]</span>
+<span class="w">    </span><span class="p">)</span>
+
+<span class="c1"># Create data.table containing normalmixEM parameter estimates.</span>
+<span class="n">paramsDF1</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">data.table</span><span class="p">(</span>
+<span class="w">    </span><span class="n">parameter</span><span class="o">=</span><span class="nf">c</span><span class="p">(</span><span class="s">&quot;mu&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;sigma&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;pi&quot;</span><span class="p">),</span><span class="w"> </span><span class="n">stringsAsFactors</span><span class="o">=</span><span class="kc">FALSE</span>
+<span class="w">  </span><span class="p">)</span>
+<span class="nf">for </span><span class="p">(</span><span class="n">ii</span><span class="w"> </span><span class="n">in</span><span class="w"> </span><span class="m">1</span><span class="o">:</span><span class="n">r</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="n">paramsDF1</span><span class="p">[[</span><span class="nf">paste0</span><span class="p">(</span><span class="s">&quot;comp&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">ii</span><span class="p">)]]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">c</span><span class="p">(</span><span class="n">gmm</span><span class="o">$</span><span class="n">mu</span><span class="p">[</span><span class="n">ii</span><span class="p">],</span><span class="w"> </span><span class="n">gmm</span><span class="o">$</span><span class="n">sigma</span><span class="p">[</span><span class="n">ii</span><span class="p">],</span><span class="w"> </span><span class="n">gmm</span><span class="o">$</span><span class="n">lambda</span><span class="p">[</span><span class="n">ii</span><span class="p">])</span>
+<span class="p">}</span>
+</code></pre></div>
+
+<p>Let&#8217;s compare <code>paramsDF0</code> with <code>paramsDF1</code>:</p>
+<div class="highlight"><pre><span></span><code>&gt; paramsDF0
+   parameter        w_1         w_2
+1:        mu 81.7632674 181.2244438
+2:     sigma 16.0083545  30.6704024
+3:        pi  0.5674678   0.4325322
+
+&gt; paramsDF1
+   parameter      comp1       comp2
+1:        mu 81.7632740 181.2244778
+2:     sigma 16.0083538  30.6704046
+3:        pi  0.5674678   0.4325322
+</code></pre></div>
+
+<p>We find the results to be almost&nbsp;identical.</p>
+<p>Finally, we can create a density plot to illustrate the adequacy of the <span class="caps">GMM</span> fit to the&nbsp;data:</p>
+<div class="highlight"><pre><span></span><code><span class="c1"># Plot comparing empirical data with estimated mixture model.</span>
+<span class="n">exhibitPath</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;C:/Users/i103455/Repos/Tutorials/Supporting/em2.png&quot;</span>
+<span class="nf">png</span><span class="p">(</span><span class="n">file</span><span class="o">=</span><span class="n">exhibitPath</span><span class="p">)</span>
+<span class="nf">hist</span><span class="p">(</span><span class="n">x</span><span class="p">,</span><span class="w"> </span><span class="n">prob</span><span class="o">=</span><span class="kc">TRUE</span><span class="p">,</span><span class="w"> </span><span class="n">breaks</span><span class="o">=</span><span class="m">23</span><span class="p">,</span><span class="w"> </span><span class="n">xlim</span><span class="o">=</span><span class="nf">c</span><span class="p">(</span><span class="nf">min</span><span class="p">(</span><span class="n">x</span><span class="p">),</span><span class="w"> </span><span class="nf">max</span><span class="p">(</span><span class="n">x</span><span class="p">),</span><span class="w"> </span><span class="n">main</span><span class="o">=</span><span class="s">&quot;GMM Estimate via EM&quot;</span><span class="p">)</span>
+<span class="n">xx</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">seq</span><span class="p">(</span><span class="n">from</span><span class="o">=</span><span class="nf">min</span><span class="p">(</span><span class="n">x</span><span class="p">),</span><span class="w"> </span><span class="n">to</span><span class="o">=</span><span class="nf">max</span><span class="p">(</span><span class="n">x</span><span class="p">),</span><span class="w"> </span><span class="n">length.out</span><span class="o">=</span><span class="m">500</span><span class="p">)</span>
+<span class="n">yy</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">rpi</span><span class="p">[</span><span class="m">1</span><span class="p">]</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="nf">dnorm</span><span class="p">(</span><span class="n">xx</span><span class="p">,</span><span class="w"> </span><span class="n">mean</span><span class="o">=</span><span class="n">rmu</span><span class="p">[</span><span class="m">1</span><span class="p">],</span><span class="w"> </span><span class="n">sd</span><span class="o">=</span><span class="n">rsd</span><span class="p">[</span><span class="m">1</span><span class="p">])</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">rpi</span><span class="p">[</span><span class="m">2</span><span class="p">]</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="nf">dnorm</span><span class="p">(</span><span class="n">xx</span><span class="p">,</span><span class="w"> </span><span class="n">mean</span><span class="o">=</span><span class="n">rmu</span><span class="p">[</span><span class="m">2</span><span class="p">],</span><span class="w"> </span><span class="n">sd</span><span class="o">=</span><span class="n">rsd</span><span class="p">[</span><span class="m">2</span><span class="p">])</span>
+<span class="nf">lines</span><span class="p">(</span><span class="n">xx</span><span class="p">,</span><span class="w"> </span><span class="n">yy</span><span class="p">,</span><span class="w"> </span><span class="n">col</span><span class="o">=</span><span class="s">&quot;#E02C70&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">lwd</span><span class="o">=</span><span class="m">2</span><span class="p">)</span>
+<span class="nf">dev.off</span><span class="p">()</span>
+</code></pre></div>
+
+<p>Which results&nbsp;in:</p>
+<p><img alt="em2" src="https://drive.google.com/uc?export=view&amp;id=1VPe_XTQd_0GWuDT4xypd6QGjHLrH3ltO"></p>
+<p>We see that the model serves as a good representation of the underlying&nbsp;data. </p>
+<h3>Conclusion</h3>
+<p>One final note regarding Expectation Maximization estimates: This is taken from Christopher Bishop&#8217;s <em>Pattern Recognition and Machine Learning</em>, Chapter&nbsp;9:</p>
+<blockquote>
+<p>A K-component mixture model will have a total of $K!$ equivalent solutions corresponding to the $K!$ ways of assigning $K$ sets of parameters to $K$ components. In other words, for any given point in the space of parameter values there will be a further $K! - 1$ additional points all of which give rise to exactly the same distribution. This problem is known as <em>identifiability</em>. </p>
+</blockquote>
+<p>This means that for certain datasets, the parameters estimates from our implementation may differ from those found via mixtools, but for the purposes of finding a good density model, the difference is irrelevant since any of the equivalent solutions is as good as any other. Just be sure to perform a visual adequacy assessment to ensure the differences in parameter estimates do indeed result in identical or nearly identical probability&nbsp;densities. </p>
+            </div>
+            <!-- /.entry-content -->
+        </article>
+    </section>
+
+        </div>
+        <div class="col-sm-3" id="sidebar">
+            <aside>
+<div id="aboutme">
+        <p>
+            <img width="100%" class="img-thumbnail" src="./images/JDTGOOG.JPG"/>
+        </p>
+    <p>
+      <strong>About James D. Triveri</strong><br/>
+        Data Scientist interested in ML/DL, automation and scientific computing.
+    </p>
+</div><!-- Sidebar -->
+<section class="well well-sm">
+  <ul class="list-group list-group-flush">
+
+<!-- Sidebar/Links -->
+<li class="list-group-item">
+  <h4><i class="fa fa-external-link-square fa-lg"></i><span class="icon-label">Links</span></h4>
+  <ul class="list-group" id="links">
+    <li class="list-group-item">
+      <a href="http://python.org/" target="_blank">Python.org</a>
+    </li>
+    <li class="list-group-item">
+      <a href="https://docs.python.org/3/py-modindex.html" target="_blank">The Python Module Index</a>
+    </li>
+    <li class="list-group-item">
+      <a href="https://scikit-learn.org/stable/documentation.html" target="_blank">Scikit-Learn</a>
+    </li>
+    <li class="list-group-item">
+      <a href="https://www.scipy.org/docs.html" target="_blank">Scipy Docs</a>
+    </li>
+    <li class="list-group-item">
+      <a href="https://openai.com/" target="_blank">OpenAI</a>
+    </li>
+  </ul>
+</li>
+<!-- End Sidebar/Links -->
+
+<!-- Sidebar/Images -->
+<li class="list-group-item">
+  <ul class="list-group" id="links">
+    <img width="100%" class="img-thumbnail" src="images/Sidebar/sidebarA.jpg"/>
+    <img width="100%" class="img-thumbnail" src="images/Sidebar/sidebarB.png"/>
+    <img width="100%" class="img-thumbnail" src="images/Sidebar/sidebarC.jpg"/>
+    <img width="100%" class="img-thumbnail" src="images/Sidebar/sidebarD.jpg"/>
+  </ul>
+</li>
+<!-- End Sidebar/Images -->
+  </ul>
+</section>
+<!-- End Sidebar -->            </aside>
+        </div>
+    </div>
+</div>
+<!-- End Content Container -->
+
+<footer>
+   <div class="container-fluid">
+      <hr>
+      <div class="row">
+         <div class="col-xs-10">&copy; 2023 James D. Triveri
+            &middot; Powered by <a href="https://github.com/getpelican/pelican-themes/tree/master/pelican-bootstrap3" target="_blank">pelican-bootstrap3</a>,
+            <a href="http://docs.getpelican.com/" target="_blank">Pelican</a>,
+            <a href="http://getbootstrap.com" target="_blank">Bootstrap</a>         </div>
+         <div class="col-xs-2"><p class="pull-right"><i class="fa fa-arrow-up"></i> <a href="#">Back to top</a></p></div>
+      </div>
+   </div>
+</footer>
+<script src="./theme/js/jquery.min.js"></script>
+
+<!-- Include all compiled plugins (below), or include individual files as needed -->
+<script src="./theme/js/bootstrap.min.js"></script>
+
+<!-- Enable responsive features in IE8 with Respond.js (https://github.com/scottjehl/Respond) -->
+<script src="./theme/js/respond.min.js"></script>
+
+
+    <script src="./theme/js/bodypadding.js"></script>
+
+
+</body>
+</html>

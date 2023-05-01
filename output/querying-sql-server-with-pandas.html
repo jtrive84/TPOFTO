@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="en" prefix="og: http://ogp.me/ns# fb: https://www.facebook.com/2008/fbml">
+<head>
+    <title>Querying SQL Server with Pandas - The Pleasure of Finding Things Out</title>
+    <!-- Using the latest rendering mode for IE -->
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+
+
+<link rel="canonical" href="./querying-sql-server-with-pandas.html">
+
+        <meta name="author" content="James D. Triveri" />
+        <meta name="keywords" content="Python" />
+        <meta name="description" content="Querying SQL server with Pandas" />
+
+        <meta property="og:site_name" content="The Pleasure of Finding Things Out" />
+        <meta property="og:type" content="article"/>
+        <meta property="og:title" content="Querying SQL Server with Pandas"/>
+        <meta property="og:url" content="./querying-sql-server-with-pandas.html"/>
+        <meta property="og:description" content="Querying SQL server with Pandas"/>
+        <meta property="article:published_time" content="2023-04-23" />
+            <meta property="article:section" content="Python" />
+            <meta property="article:tag" content="Python" />
+            <meta property="article:author" content="James D. Triveri" />
+
+
+
+    <!-- Bootstrap -->
+        <link rel="stylesheet" href="./theme/css/bootstrap.Yeti.min.css" type="text/css"/>
+    <link href="./theme/css/font-awesome.min.css" rel="stylesheet">
+
+    <link href="./theme/css/pygments/default.css" rel="stylesheet">
+        <link href="./theme/css/typogrify.css" rel="stylesheet">
+    <link rel="stylesheet" href="./theme/css/style.css" type="text/css"/>
+        <link href="./static/css/custom.css" rel="stylesheet">
+
+
+
+
+</head>
+<body>
+
+<div class="navbar navbar-inverse navbar-fixed-top" role="navigation">
+    <div class="container-fluid">
+        <div class="navbar-header">
+            <button type="button" class="navbar-toggle" data-toggle="collapse" data-target=".navbar-ex1-collapse">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            <a href="./" class="navbar-brand">
+The Pleasure of Finding Things Out            </a>
+        </div>
+        <div class="collapse navbar-collapse navbar-ex1-collapse">
+            <ul class="nav navbar-nav">
+                         <li><a href="./pages/about-me.html">
+                             About&nbsp;Me
+                          </a></li>
+                        <li >
+                            <a href="./category/machine-learning.html">Machine learning</a>
+                        </li>
+                        <li class="active">
+                            <a href="./category/python.html">Python</a>
+                        </li>
+                        <li >
+                            <a href="./category/r.html">R</a>
+                        </li>
+                        <li >
+                            <a href="./category/statistical-modeling.html">Statistical modeling</a>
+                        </li>
+            </ul>
+            <ul class="nav navbar-nav navbar-right">
+            </ul>
+        </div>
+        <!-- /.navbar-collapse -->
+    </div>
+</div> <!-- /.navbar -->
+
+<!-- Banner -->
+<!-- End Banner -->
+
+<!-- Content Container -->
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-sm-9">
+    <section id="content">
+        <article>
+            <header class="page-header">
+                <h1>
+                    <a href="./querying-sql-server-with-pandas.html"
+                       rel="bookmark"
+                       title="Permalink to Querying SQL Server with Pandas">
+                        Querying <span class="caps">SQL</span> Server with&nbsp;Pandas
+                    </a>
+                </h1>
+            </header>
+            <div class="entry-content">
+                <div class="panel">
+                    <div class="panel-body">
+<footer class="post-info">
+    <span class="label label-default">Date</span>
+    <span class="published">
+        <i class="fa fa-calendar"></i><time datetime="2023-04-23T00:00:00-05:00"> 2023-04-23</time>
+    </span>
+
+
+
+
+
+<span class="label label-default">Tags</span>
+	<a href="./tag/python.html">Python</a>
+    
+</footer><!-- /.post-info -->                    </div>
+                </div>
+                <p>Pandas is an easy to use open source data analysis and manipulation tool built on top of the Python programming language. It has grown in popularity in the past few years, and has become the library of choice for Machine Learning and Data Science practitioners. 
+Pandas exposes two powerful data structures: Series objects, roughly akin R vectors, represent indexed, homogeneously-typed data (including time series). Series objects have a close affinity with numpy ndarray objects, 
+allowing for straightforward conversion from Series to ndarray objects. DataFrame objects are two-dimensional, size-mutable, potentially heterogeneous tabular datasets. DataFrame&#8217;s are comprised of one or more Series objects, similar to how a data.frame in R is comprised of one or more&nbsp;vectors. </p>
+<p>If you research how to connect to a database from Python, many examples use the pyodbc library, which creates a connection to any <span class="caps">ODBC</span>-compatible database. However, connections with pyodbc itself are uni-directional: Data can be retrieved, but it cannot be uploaded into the database. To allow for simple, bi-directional database transactions, we use pyodbc along with <a href="https://www.sqlalchemy.org/">sqlalchemy</a>, a Python <span class="caps">SQL</span> toolkit and Object Relational Mapper that gives application developers the full power and flexibility of <span class="caps">SQL</span>. With pyodbc and sqlalchemy together, it becomes possible to retrieve and upload data from Pandas DataFrames with relative ease. 
+Let&#8217;s assume we&#8217;re interested in connecting to the <em>User_ActuarialPilot</em> database on the server identified as <em>dnsdbentrep01p</em>. A connection using sqlalchemy is created as follows (assuming a <span class="caps">SQL</span> Server&nbsp;database):</p>
+<div class="highlight"><pre><span></span><code><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">Creating a database connection with sqlalchemy. </span>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+<span class="kn">import</span> <span class="nn">sqlalchemy</span>
+
+<span class="n">DRIVER</span> <span class="o">=</span> <span class="s2">&quot;SQL Server&quot;</span>
+<span class="n">SERVER</span> <span class="o">=</span> <span class="s2">&quot;SERVER&quot;</span>
+<span class="n">DATABASE</span> <span class="o">=</span> <span class="s2">&quot;DB&quot;</span>
+
+<span class="c1"># Create connection uri.</span>
+<span class="n">conn_uri</span> <span class="o">=</span> <span class="s2">&quot;mssql+pyodbc://</span><span class="si">{}</span><span class="s2">/</span><span class="si">{}</span><span class="s2">?driver=</span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+    <span class="n">SERVER</span><span class="p">,</span> <span class="n">DATABASE</span><span class="p">,</span> <span class="n">DRIVER</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot; &quot;</span><span class="p">,</span> <span class="s2">&quot;+&quot;</span><span class="p">)</span>
+    <span class="p">)</span>
+
+<span class="c1"># Initialize connection.</span>
+<span class="n">conn</span> <span class="o">=</span>  <span class="n">sqlalchemy</span><span class="o">.</span><span class="n">create_engine</span><span class="p">(</span><span class="n">conn_uri</span><span class="p">)</span>
+</code></pre></div>
+
+<p>A few points to&nbsp;highlight:</p>
+<ul>
+<li>
+<p><code>conn_uri</code> is a string that contains information needed to connect to our database. The prefix <code>mssql+pyodbc://</code> indicates that we&#8217;re targeting a <span class="caps">SQL</span> Server database via the pyodbc connector. Also, if we weren&#8217;t using Windows authentication, or were working with a different <span class="caps">RDBMS</span>, it would be necessary to change <code>conn_uri</code>. For example, an Oracle connection uri would be specified as <code>oracle://[USERNAME]:[PASSWORD]@[DATABASE]</code>.</p>
+</li>
+<li>
+<p>Also in <code>conn_uri</code>, within the format substitution, whitespace in <code>DRIVER</code> is replaced with <code>+</code>. This is consistent with how whitespace is encoded for web&nbsp;addresses. </p>
+</li>
+</ul>
+<p>Next, to query the French Motor Third-Party Liability Claims sample dataset in the table <em>SAMPLE_FREMTPL</em>, use the <code>read_sql</code> function. I&#8217;ve included the connection initialization logic for&nbsp;convenience:</p>
+<div class="highlight"><pre><span></span><code><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">Reading database data into Pandas DataFrame.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+<span class="kn">import</span> <span class="nn">sqlalchemy</span>
+
+<span class="n">DRIVER</span> <span class="o">=</span> <span class="s2">&quot;SQL Server&quot;</span>
+<span class="n">SERVER</span> <span class="o">=</span> <span class="s2">&quot;SERVER&quot;</span>
+<span class="n">DATABASE</span> <span class="o">=</span> <span class="s2">&quot;DB&quot;</span>
+
+<span class="c1"># Create connection uri.</span>
+<span class="n">conn_uri</span> <span class="o">=</span> <span class="s2">&quot;mssql+pyodbc://</span><span class="si">{}</span><span class="s2">/</span><span class="si">{}</span><span class="s2">?driver=</span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+    <span class="n">SERVER</span><span class="p">,</span> <span class="n">DATABASE</span><span class="p">,</span> <span class="n">DRIVER</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot; &quot;</span><span class="p">,</span> <span class="s2">&quot;+&quot;</span><span class="p">)</span>
+    <span class="p">)</span>
+
+<span class="c1"># Initialize connection.</span>
+<span class="n">conn</span> <span class="o">=</span>  <span class="n">sqlalchemy</span><span class="o">.</span><span class="n">create_engine</span><span class="p">(</span><span class="n">conn_uri</span><span class="p">)</span>
+
+<span class="c1"># Create query. </span>
+<span class="n">SQL</span> <span class="o">=</span> <span class="s2">&quot;SELECT * FROM SAMPLE_FREMTPL&quot;</span>
+
+<span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_sql</span><span class="p">(</span><span class="n">SQL</span><span class="p">,</span> <span class="n">con</span><span class="o">=</span><span class="n">conn</span><span class="p">)</span>
+</code></pre></div>
+
+<p>Instead of passing a query to <code>pd.read_sql</code>, the tablename could have been provided. <code>pd.read_sql</code> is convenience wrapper around <code>read_sql_table</code> and <code>read_sql_query</code> which will delegate to the specific function depending on the input (dispatches <code>read_sql_table</code> if input is a tablename, <code>read_sql_query</code> if input is a query). Refer to the <a href="https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.read_sql.html#pandas.read_sql">documentation</a> for more&nbsp;information.  </p>
+<p>Inspecting the first 10 records of the dataset&nbsp;yields:</p>
+<div class="highlight"><pre><span></span><code>  IDPOL CLAIMNB  EXPOSURE AREA  VEHPOWER VEHAGE  DRIVAGE  BONUSMALUS VEHBRAND     VEHGAS  DENSITY REGION
+0  1290       1   0.66000  &#39;B&#39;         7      0       28          60    &#39;B12&#39;  &#39;Regular&#39;       52  &#39;R72&#39;
+1  1292       1   0.12000  &#39;B&#39;         7      0       28          60    &#39;B12&#39;  &#39;Regular&#39;       52  &#39;R72&#39;
+2  1295       1   0.08000  &#39;E&#39;         5      0       36          50    &#39;B12&#39;  &#39;Regular&#39;     3274  &#39;R11&#39;
+3  1296       1   0.50000  &#39;E&#39;         5      0       36          50    &#39;B12&#39;  &#39;Regular&#39;     3274  &#39;R11&#39;
+4  1297       1   0.20000  &#39;E&#39;         5      0       36          50    &#39;B12&#39;  &#39;Regular&#39;     3274  &#39;R11&#39;
+5  1299       1   0.74000  &#39;D&#39;         6      0       76          50    &#39;B12&#39;  &#39;Regular&#39;      543  &#39;R91&#39;
+6  1301       1   0.05000  &#39;D&#39;         6      0       76          50    &#39;B12&#39;  &#39;Regular&#39;      543  &#39;R91&#39;
+7  1303       1   0.03000  &#39;B&#39;        11      0       39          50    &#39;B12&#39;   &#39;Diesel&#39;       55  &#39;R52&#39;
+8  1304       1   0.76000  &#39;B&#39;        11      0       39          50    &#39;B12&#39;   &#39;Diesel&#39;       55  &#39;R52&#39;
+9  1306       1   0.49000  &#39;E&#39;        10      0       38          50    &#39;B12&#39;  &#39;Regular&#39;     2715  &#39;R93&#39;
+</code></pre></div>
+
+<p>In Python, to determine the type of an object, use the <code>type</code> function:</p>
+<div class="highlight"><pre><span></span><code><span class="n">In</span> <span class="p">[</span><span class="mi">1</span><span class="p">]:</span> <span class="nb">type</span><span class="p">(</span><span class="n">df</span><span class="p">)</span>
+<span class="n">Out</span><span class="p">[</span><span class="mi">1</span><span class="p">]:</span> <span class="n">pandas</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">frame</span><span class="o">.</span><span class="n">DataFrame</span>
+</code></pre></div>
+
+<p>To determine the dimensionality of a DataFrame, access the <code>shape</code> attribute (returned as number of rows by number of&nbsp;columns):</p>
+<div class="highlight"><pre><span></span><code><span class="n">In</span> <span class="p">[</span><span class="mi">2</span><span class="p">]:</span> <span class="n">df</span><span class="o">.</span><span class="n">shape</span>
+<span class="n">Out</span><span class="p">[</span><span class="mi">2</span><span class="p">]:</span> <span class="p">(</span><span class="mi">678013</span><span class="p">,</span> <span class="mi">12</span><span class="p">)</span>
+</code></pre></div>
+
+<p>A single column can be extracted from a DataFrame using in one of two ways: The first approach entails specifying the fieldname as a string within brackets. For example, to reference the <code>AREA</code> column,&nbsp;run:</p>
+<div class="highlight"><pre><span></span><code><span class="n">In</span> <span class="p">[</span><span class="mi">3</span><span class="p">]:</span> <span class="n">area</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="s2">&quot;AREA&quot;</span><span class="p">]</span>
+<span class="n">In</span> <span class="p">[</span><span class="mi">4</span><span class="p">]:</span> <span class="nb">type</span><span class="p">(</span><span class="n">area</span><span class="p">)</span>
+<span class="n">Out</span><span class="p">[</span><span class="mi">4</span><span class="p">]:</span> <span class="n">pandas</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">series</span><span class="o">.</span><span class="n">Series</span>
+</code></pre></div>
+
+<p>We see that <code>area</code> is a Series object. The second method that can be used to extract a column from a DataFrame entails specifying the column name after the DataFrame variable separated by <code>.</code>, similar to how class methods and attributes are accessed in Python. We again reference the <code>AREA</code> column using this&nbsp;approach:</p>
+<div class="highlight"><pre><span></span><code><span class="n">In</span> <span class="p">[</span><span class="mi">5</span><span class="p">]:</span> <span class="n">area2</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">AREA</span>
+<span class="n">In</span> <span class="p">[</span><span class="mi">6</span><span class="p">]:</span> <span class="nb">type</span><span class="p">(</span><span class="n">area</span><span class="p">)</span>
+<span class="n">Out</span><span class="p">[</span><span class="mi">6</span><span class="p">]:</span> <span class="n">pandas</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">series</span><span class="o">.</span><span class="n">Series</span>
+</code></pre></div>
+
+<p>We see that <code>area2</code> is also a Series type. We can show that <code>area</code> and <code>area2</code> are the same by&nbsp;running:</p>
+<div class="highlight"><pre><span></span><code><span class="n">In</span> <span class="p">[</span><span class="mi">7</span><span class="p">]:</span> <span class="n">area</span><span class="o">.</span><span class="n">equals</span><span class="p">(</span><span class="n">area2</span><span class="p">)</span>
+</code></pre></div>
+
+<p>As mentioned in the introduction, converting between Series objects and numpy ndarrays is simple: Call the Series object&#8217;s <code>values</code> attribute:</p>
+<div class="highlight"><pre><span></span><code><span class="n">In</span> <span class="p">[</span><span class="mi">8</span><span class="p">]:</span> <span class="nb">type</span><span class="p">(</span><span class="n">area</span><span class="p">)</span>
+<span class="n">Out</span><span class="p">[</span><span class="mi">8</span><span class="p">]:</span> <span class="n">pandas</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">series</span><span class="o">.</span><span class="n">Series</span>
+<span class="n">In</span> <span class="p">[</span><span class="mi">9</span><span class="p">]:</span> <span class="n">arr</span> <span class="o">=</span> <span class="n">area</span><span class="o">.</span><span class="n">values</span>
+<span class="n">In</span><span class="p">[</span><span class="mi">10</span><span class="p">]:</span> <span class="nb">type</span><span class="p">(</span><span class="n">arr</span><span class="p">)</span>
+<span class="n">Out</span><span class="p">[</span><span class="mi">10</span><span class="p">]:</span> <span class="n">numpy</span><span class="o">.</span><span class="n">ndarray</span>
+</code></pre></div>
+
+<p>One last point regarding Series objects: To produce a frequency distribution for a particular column, leverage the 
+<code>value_counts</code> method:</p>
+<div class="highlight"><pre><span></span><code><span class="n">In</span><span class="p">[</span><span class="mi">11</span><span class="p">]:</span> <span class="n">df</span><span class="p">[</span><span class="s2">&quot;AREA&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">value_counts</span><span class="p">()</span>
+<span class="n">Out</span><span class="p">[</span><span class="mi">11</span><span class="p">]:</span> 
+<span class="s1">&#39;A&#39;</span>    <span class="mi">103957</span>
+<span class="s1">&#39;B&#39;</span>     <span class="mi">75459</span>
+<span class="s1">&#39;C&#39;</span>    <span class="mi">191880</span>
+<span class="s1">&#39;D&#39;</span>    <span class="mi">151596</span>
+<span class="s1">&#39;E&#39;</span>    <span class="mi">137167</span>
+<span class="s1">&#39;F&#39;</span>     <span class="mi">17954</span>
+</code></pre></div>
+
+<p>To sort results by index, append <code>.sort_index()</code>:</p>
+<div class="highlight"><pre><span></span><code><span class="n">In</span><span class="p">[</span><span class="mi">12</span><span class="p">]:</span> <span class="n">df</span><span class="p">[</span><span class="s2">&quot;AREA&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">value_counts</span><span class="p">()</span><span class="o">.</span><span class="n">sort_index</span><span class="p">()</span>
+<span class="n">Out</span><span class="p">[</span><span class="mi">12</span><span class="p">]:</span>
+<span class="s1">&#39;A&#39;</span>    <span class="mi">103957</span>
+<span class="s1">&#39;B&#39;</span>     <span class="mi">75459</span>
+<span class="s1">&#39;C&#39;</span>    <span class="mi">191880</span>
+<span class="s1">&#39;D&#39;</span>    <span class="mi">151596</span>
+<span class="s1">&#39;E&#39;</span>    <span class="mi">137167</span>
+<span class="s1">&#39;F&#39;</span>     <span class="mi">17954</span>
+<span class="n">Name</span><span class="p">:</span> <span class="n">AREA</span><span class="p">,</span> <span class="n">dtype</span><span class="p">:</span> <span class="n">int64</span>
+</code></pre></div>
+
+<p><code>NaN</code>s will not be counted in the summary returned by <code>value_counts</code>. If there were <code>NaN</code>s in <code>df["AREA"]</code>,
+the sum of the counts returned by <code>value_counts</code> would be less than the number of rows in <code>df</code>, so it&#8217;s a good idea to check if records are being dropped because of <code>NaN</code>s. We can accomplish this as&nbsp;follows:</p>
+<div class="highlight"><pre><span></span><code><span class="n">In</span><span class="p">[</span><span class="mi">13</span><span class="p">]:</span> <span class="n">df</span><span class="p">[</span><span class="s2">&quot;AREA&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">value_counts</span><span class="p">()</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span> <span class="o">==</span> <span class="n">df</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> 
+<span class="n">Out</span><span class="p">[</span><span class="mi">13</span><span class="p">]:</span> <span class="kc">True</span>
+</code></pre></div>
+
+<h3>Iterative Data&nbsp;Retrieval</h3>
+<p>When working with large datasets, it may be inefficient to retrieve the entire dataset in a single pass. Pandas provides functionality to retrieve data in <code>chunksize</code>-record blocks, which can result in significant speedups. In the following example, the same French Motor Third-Party Liability Claims sample dataset is retrieved in 20,000-record blocks. The only change in the call to <code>read_sql</code> is the inclusion of <code>chunksize</code>, which specifies the maximum number of records to retrieve for a given iteration. We assume <code>conn</code> has already been&nbsp;initialized:</p>
+<div class="highlight"><pre><span></span><code><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">Using `read_sql`&#39;s *chunksize* parameter for iterative retrieval.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="n">CHUNKSIZE</span> <span class="o">=</span> <span class="mi">20000</span>
+<span class="n">SQL</span> <span class="o">=</span> <span class="s2">&quot;SELECT * FROM SAMPLE_FREMTPL&quot;</span>
+<span class="n">dfiter</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_sql</span><span class="p">(</span><span class="n">SQL</span><span class="p">,</span> <span class="n">con</span><span class="o">=</span><span class="n">conn</span><span class="p">,</span> <span class="n">chunksize</span><span class="o">=</span><span class="n">CHUNKSIZE</span><span class="p">)</span>
+<span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">concat</span><span class="p">([</span><span class="n">dd</span> <span class="k">for</span> <span class="n">dd</span> <span class="ow">in</span> <span class="n">dfiter</span><span class="p">])</span>
+</code></pre></div>
+
+<ul>
+<li><code>CHUNKSIZE</code> specifies the maximum number of records to retrieve at each&nbsp;iteration. </li>
+<li><code>dfiter</code> is a reference to the data targeted in our query. <code>dfiter</code> is not a DataFrame, rather it is a generator, a Python object which makes it easy to create iterators. Generators yield values lazily, so they are particularly memory&nbsp;efficient. </li>
+<li><code>df = pd.concat([dd for dd in dfiter])</code> can be decomposed into two parts: First, <code>[dd for dd in dfiter]</code> is a <em>list comprehension</em>, a very powerful tool that works similar to a flattened for loop. If we bound <code>[dd for dd in dfiter]</code> to a variable directly, the result would be a list of 34 DataFrames, each having no more than 20,000 records. 
+Second, <code>pd.concat</code> takes the list of DataFrames, and performs a row-wise concatenation of each DataFrame, resulting in a single DataFrame with 678,013 records. <code>pd.concat</code> is akin to the <span class="caps">SQL</span> <code>UNION</code> operator. The final result, <code>df</code>, is a DataFrame having 678,013 rows and 12&nbsp;columns.</li>
+</ul>
+<h3>Exporting Results to&nbsp;File</h3>
+<p>Instead of reading the data into memory, it may be necessary to retrieve the dataset, then write the results to file for later analysis. This can be accomplished in an iterative fashion so that no more than <code>CHUNKSIZE</code> records are in-memory at any point in time. Results will be saved to .csv in a file named <code>"FREMTPL.csv"</code> in 100,000 record&nbsp;blocks:</p>
+<div class="highlight"><pre><span></span><code><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">Writing queried results to file. </span>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="kn">import</span> <span class="nn">time</span>
+
+<span class="n">CHUNKSIZE</span> <span class="o">=</span> <span class="mi">100000</span>
+<span class="n">CSV_PATH</span>  <span class="o">=</span> <span class="s2">&quot;FREMTPL.csv&quot;</span>
+<span class="n">SQL</span>       <span class="o">=</span> <span class="s2">&quot;SELECT * FROM SAMPLE_FREMTPL&quot;</span>
+
+<span class="n">dfiter</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_sql</span><span class="p">(</span><span class="n">SQL</span><span class="p">,</span> <span class="n">conn</span><span class="p">,</span> <span class="n">chunksize</span><span class="o">=</span><span class="n">CHUNKSIZE</span><span class="p">)</span>
+
+<span class="n">t_i</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+<span class="n">trkr</span><span class="p">,</span> <span class="n">nbrrecs</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span>
+<span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">CSV_PATH</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">&quot;utf-8&quot;</span><span class="p">,</span> <span class="n">newline</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">fcsv</span><span class="p">:</span>
+
+    <span class="k">for</span> <span class="n">df</span> <span class="ow">in</span> <span class="n">dfiter</span><span class="p">:</span>
+        <span class="n">fcsv</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">df</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="n">header</span><span class="o">=</span><span class="n">nbrrecs</span><span class="o">==</span><span class="mi">0</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;a&quot;</span><span class="p">))</span>
+        <span class="n">nbrrecs</span><span class="o">+=</span><span class="n">df</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Retrieved records </span><span class="si">{}</span><span class="s2">-</span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">((</span><span class="n">trkr</span> <span class="o">*</span> <span class="n">CHUNKSIZE</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">nbrrecs</span><span class="p">))</span>
+        <span class="n">trkr</span><span class="o">+=</span><span class="mi">1</span>
+
+<span class="n">t_tot</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">-</span> <span class="n">t_i</span>
+<span class="n">retrieval_rate</span> <span class="o">=</span> <span class="n">nbrrecs</span> <span class="o">/</span> <span class="n">t_tot</span>
+
+<span class="nb">print</span><span class="p">(</span>
+    <span class="s2">&quot;Retrieved </span><span class="si">{}</span><span class="s2"> records in </span><span class="si">{:.0f}</span><span class="s2"> seconds (</span><span class="si">{:.0f}</span><span class="s2"> recs/sec.).&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+        <span class="n">nbrrecs</span><span class="p">,</span> <span class="n">t_tot</span><span class="p">,</span> <span class="n">retrieval_rate</span>
+        <span class="p">)</span>
+    <span class="p">)</span>
+</code></pre></div>
+
+<p>Executing the code above produces the following&nbsp;output:</p>
+<div class="highlight"><pre><span></span><code>Retrieved records 1-100000
+Retrieved records 100001-200000
+Retrieved records 200001-300000
+Retrieved records 300001-400000
+Retrieved records 400001-500000
+Retrieved records 500001-600000
+Retrieved records 600001-678013
+Retrieved 678013 records in 20 seconds (33370 recs/sec.).
+</code></pre></div>
+
+<p>Results will be available in the file referenced by <code>CSV_PATH</code>.</p>
+<h3>Exporting&nbsp;Data</h3>
+<p>In order to export a DataFrame into a database, we leverage the DataFrame&#8217;s <code>to_sql</code> method. We provide the name of the table we wish to upload data in, along with a connection object, and what action to take if the table already exists. 
+<code>if_exists</code> can be one&nbsp;of:</p>
+<ul>
+<li>
+<p><span class="dquo">&#8220;</span>fail&#8221;: Raise a <code>ValueError</code>.</p>
+</li>
+<li>
+<p><span class="dquo">&#8220;</span>replace&#8221;: Drop the table before inserting new&nbsp;values.</p>
+</li>
+<li>
+<p><span class="dquo">&#8220;</span>append&#8221;: Insert new values to the existing&nbsp;table.</p>
+</li>
+</ul>
+<p>As a simple transformation, we determine aggregate <span class="caps">EXPOSURE</span> by <span class="caps">AREA</span>, append a timestamp, then export the result as &#8220;SAMPLE_AREA_SUMM&#8221;. If the table exists, we want the query to&nbsp;fail:</p>
+<div class="highlight"><pre><span></span><code><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">Summary of aggregate EXPOSURE by AREA based on the French Motor Third-Party </span>
+<span class="sd">Liability Claims sample dataset.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="kn">import</span> <span class="nn">datetime</span>
+
+<span class="c1"># Compute aggregate EXPOSURE by AREA.</span>
+<span class="n">dfsumm</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span><span class="s2">&quot;AREA&quot;</span><span class="p">,</span> <span class="n">as_index</span><span class="o">=</span><span class="kc">False</span><span class="p">)[</span><span class="s2">&quot;EXPOSURE&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+
+<span class="c1"># Append timestamp.</span>
+<span class="n">timestamp</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="s2">&quot;%Y-%m-</span><span class="si">%d</span><span class="s2"> %H:%M:%S.</span><span class="si">%f</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="n">dfsumm</span><span class="p">[</span><span class="s2">&quot;TIMESTAMP&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">timestamp</span>
+
+<span class="c1"># Export results.</span>
+<span class="n">dfsumm</span><span class="o">.</span><span class="n">to_sql</span><span class="p">(</span><span class="s2">&quot;SAMPLE_AREA_SUMM&quot;</span><span class="p">,</span> <span class="n">con</span><span class="o">=</span><span class="n">conn</span><span class="p">,</span> <span class="n">if_exists</span><span class="o">=</span><span class="s2">&quot;fail&quot;</span><span class="p">)</span>
+</code></pre></div>
+
+<p>If the table already exists, an error like the following will be&nbsp;generated:</p>
+<div class="highlight"><pre><span></span><code><span class="n">ValueError</span><span class="o">:</span><span class="w"> </span><span class="n">Table</span><span class="w"> </span><span class="s1">&#39;SAMPLE_AREA_SUMM&#39;</span><span class="w"> </span><span class="n">already</span><span class="w"> </span><span class="n">exists</span><span class="o">.</span>
+</code></pre></div>
+
+<p>Otherwise, no output will be&nbsp;generated. </p>
+            </div>
+            <!-- /.entry-content -->
+        </article>
+    </section>
+
+        </div>
+        <div class="col-sm-3" id="sidebar">
+            <aside>
+<div id="aboutme">
+        <p>
+            <img width="100%" class="img-thumbnail" src="./images/JDTGOOG.JPG"/>
+        </p>
+    <p>
+      <strong>About James D. Triveri</strong><br/>
+        Data Scientist interested in ML/DL, automation and scientific computing.
+    </p>
+</div><!-- Sidebar -->
+<section class="well well-sm">
+  <ul class="list-group list-group-flush">
+
+<!-- Sidebar/Links -->
+<li class="list-group-item">
+  <h4><i class="fa fa-external-link-square fa-lg"></i><span class="icon-label">Links</span></h4>
+  <ul class="list-group" id="links">
+    <li class="list-group-item">
+      <a href="http://python.org/" target="_blank">Python.org</a>
+    </li>
+    <li class="list-group-item">
+      <a href="https://docs.python.org/3/py-modindex.html" target="_blank">The Python Module Index</a>
+    </li>
+    <li class="list-group-item">
+      <a href="https://scikit-learn.org/stable/documentation.html" target="_blank">Scikit-Learn</a>
+    </li>
+    <li class="list-group-item">
+      <a href="https://www.scipy.org/docs.html" target="_blank">Scipy Docs</a>
+    </li>
+    <li class="list-group-item">
+      <a href="https://openai.com/" target="_blank">OpenAI</a>
+    </li>
+  </ul>
+</li>
+<!-- End Sidebar/Links -->
+
+<!-- Sidebar/Images -->
+<li class="list-group-item">
+  <ul class="list-group" id="links">
+    <img width="100%" class="img-thumbnail" src="images/Sidebar/sidebarA.jpg"/>
+    <img width="100%" class="img-thumbnail" src="images/Sidebar/sidebarB.png"/>
+    <img width="100%" class="img-thumbnail" src="images/Sidebar/sidebarC.jpg"/>
+    <img width="100%" class="img-thumbnail" src="images/Sidebar/sidebarD.jpg"/>
+  </ul>
+</li>
+<!-- End Sidebar/Images -->
+  </ul>
+</section>
+<!-- End Sidebar -->            </aside>
+        </div>
+    </div>
+</div>
+<!-- End Content Container -->
+
+<footer>
+   <div class="container-fluid">
+      <hr>
+      <div class="row">
+         <div class="col-xs-10">&copy; 2023 James D. Triveri
+            &middot; Powered by <a href="https://github.com/getpelican/pelican-themes/tree/master/pelican-bootstrap3" target="_blank">pelican-bootstrap3</a>,
+            <a href="http://docs.getpelican.com/" target="_blank">Pelican</a>,
+            <a href="http://getbootstrap.com" target="_blank">Bootstrap</a>         </div>
+         <div class="col-xs-2"><p class="pull-right"><i class="fa fa-arrow-up"></i> <a href="#">Back to top</a></p></div>
+      </div>
+   </div>
+</footer>
+<script src="./theme/js/jquery.min.js"></script>
+
+<!-- Include all compiled plugins (below), or include individual files as needed -->
+<script src="./theme/js/bootstrap.min.js"></script>
+
+<!-- Enable responsive features in IE8 with Respond.js (https://github.com/scottjehl/Respond) -->
+<script src="./theme/js/respond.min.js"></script>
+
+
+    <script src="./theme/js/bodypadding.js"></script>
+
+
+</body>
+</html>

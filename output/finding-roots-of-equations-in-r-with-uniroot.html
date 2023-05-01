@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="en" prefix="og: http://ogp.me/ns# fb: https://www.facebook.com/2008/fbml">
+<head>
+    <title>Finding Roots of Equations in R with uniroot - The Pleasure of Finding Things Out</title>
+    <!-- Using the latest rendering mode for IE -->
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+
+
+<link rel="canonical" href="./finding-roots-of-equations-in-r-with-uniroot.html">
+
+        <meta name="author" content="James D. Triveri" />
+        <meta name="keywords" content="Statistical Modeling,R" />
+        <meta name="description" content="Finding roots of equations in R with uniroot" />
+
+        <meta property="og:site_name" content="The Pleasure of Finding Things Out" />
+        <meta property="og:type" content="article"/>
+        <meta property="og:title" content="Finding Roots of Equations in R with uniroot"/>
+        <meta property="og:url" content="./finding-roots-of-equations-in-r-with-uniroot.html"/>
+        <meta property="og:description" content="Finding roots of equations in R with uniroot"/>
+        <meta property="article:published_time" content="2023-04-23" />
+            <meta property="article:section" content="Statistical Modeling" />
+            <meta property="article:tag" content="Statistical Modeling" />
+            <meta property="article:tag" content="R" />
+            <meta property="article:author" content="James D. Triveri" />
+
+
+
+    <!-- Bootstrap -->
+        <link rel="stylesheet" href="./theme/css/bootstrap.Yeti.min.css" type="text/css"/>
+    <link href="./theme/css/font-awesome.min.css" rel="stylesheet">
+
+    <link href="./theme/css/pygments/default.css" rel="stylesheet">
+        <link href="./theme/css/typogrify.css" rel="stylesheet">
+    <link rel="stylesheet" href="./theme/css/style.css" type="text/css"/>
+        <link href="./static/css/custom.css" rel="stylesheet">
+
+
+
+
+</head>
+<body>
+
+<div class="navbar navbar-inverse navbar-fixed-top" role="navigation">
+    <div class="container-fluid">
+        <div class="navbar-header">
+            <button type="button" class="navbar-toggle" data-toggle="collapse" data-target=".navbar-ex1-collapse">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            <a href="./" class="navbar-brand">
+The Pleasure of Finding Things Out            </a>
+        </div>
+        <div class="collapse navbar-collapse navbar-ex1-collapse">
+            <ul class="nav navbar-nav">
+                         <li><a href="./pages/about-me.html">
+                             About&nbsp;Me
+                          </a></li>
+                        <li >
+                            <a href="./category/machine-learning.html">Machine learning</a>
+                        </li>
+                        <li >
+                            <a href="./category/python.html">Python</a>
+                        </li>
+                        <li >
+                            <a href="./category/r.html">R</a>
+                        </li>
+                        <li class="active">
+                            <a href="./category/statistical-modeling.html">Statistical modeling</a>
+                        </li>
+            </ul>
+            <ul class="nav navbar-nav navbar-right">
+            </ul>
+        </div>
+        <!-- /.navbar-collapse -->
+    </div>
+</div> <!-- /.navbar -->
+
+<!-- Banner -->
+<!-- End Banner -->
+
+<!-- Content Container -->
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-sm-9">
+    <section id="content">
+        <article>
+            <header class="page-header">
+                <h1>
+                    <a href="./finding-roots-of-equations-in-r-with-uniroot.html"
+                       rel="bookmark"
+                       title="Permalink to Finding Roots of Equations in R with uniroot">
+                        Finding Roots of Equations in R with&nbsp;uniroot
+                    </a>
+                </h1>
+            </header>
+            <div class="entry-content">
+                <div class="panel">
+                    <div class="panel-body">
+<footer class="post-info">
+    <span class="label label-default">Date</span>
+    <span class="published">
+        <i class="fa fa-calendar"></i><time datetime="2023-04-23T00:00:00-05:00"> 2023-04-23</time>
+    </span>
+
+
+
+
+
+<span class="label label-default">Tags</span>
+	<a href="./tag/statistical-modeling.html">Statistical Modeling</a>
+        /
+	<a href="./tag/r.html">R</a>
+    
+</footer><!-- /.post-info -->                    </div>
+                </div>
+                <p>Often times we encounter equations which cannot be solved using direct methods. Such systems of equations are commonly 
+encountered within the context of maximum likelihood estimation, and in such cases, iterative methods can be used to 
+obtain a&nbsp;solution. </p>
+<p>Assume a set of observations representing property losses in&nbsp;dollars:</p>
+<div class="highlight"><pre><span></span><code><span class="mf">19999</span><span class="w">  </span><span class="mf">19974</span><span class="w">  </span><span class="mf">5051</span><span class="w">  </span><span class="mf">7179</span><span class="w"> </span><span class="mf">34416</span><span class="w">  </span><span class="mf">56840</span><span class="w">  </span><span class="mf">4420</span><span class="w">  </span><span class="mf">6558</span>
+</code></pre></div>
+
+<p>Our task is to fit a Weibull distribution to the loss data in order to produce a severity curve. 
+The Weibull density is given&nbsp;by:</p>
+<p>$$
+f(x;\lambda ,k) = \frac{k}{\lambda}\Big(\frac{x}{\lambda}\Big)^{k - 1}\mathrm{exp}\big[-(x/\lambda)^k\big],&nbsp;$$</p>
+<p>where:</p>
+<ul>
+<li>$k$ is the shape parameter, $k \in (0,&nbsp;+\infty).$</li>
+<li>$\lambda$ is the scale parameter, $\lambda \in (0,&nbsp;+\infty)$.</li>
+<li>$x \in [0,&nbsp;+\infty]$.</li>
+</ul>
+<p>The expected value of the Weibull distribution&nbsp;is</p>
+<p>$$
+E[X] = \lambda\Gamma(1 + 1/k),&nbsp;$$</p>
+<p>and the median is given&nbsp;by</p>
+<p>$$
+\mathrm{median} = F(X \leq .50) = \lambda(\mathrm{Ln}(2))^{1/k}.&nbsp;$$</p>
+<p>The variance is given&nbsp;by</p>
+<p>$$
+\mathrm{Var}(X) = \lambda^2\big[\Gamma\big(1 + 2/k\big) - \big(\Gamma(1 + 1/k)\big)^2\big].&nbsp;$$</p>
+<p>In $E[X]$, $\Gamma$ represents the gamma function, a generalization of the factorial expressed&nbsp;as</p>
+<p>$$
+\Gamma{(z)} = \int_{0}^{\infty} x^{z-1}e^{-x}dx, \hspace{.50em} \mathcal{R}(z) &gt; 0.&nbsp;$$</p>
+<p><strong>fitdistrplus</strong> is a third-party R library that calculates parameter estimates given data and a hypothesized distribution.
+The <code>fitdist</code> function takes an optional <code>start</code> parameter,  which represents initial parameter values associated with the 
+hypothesized distribution. The Weibull distribution has two parameters that require estimation: $k$, the shape parameter 
+and $\lambda$, the scale parameter. How can we come up with reasonable initial estimates of $k$ and&nbsp;$\lambda$?</p>
+<p>First, notice that if the mean is divided by the median, $\lambda$ cancels, leaving a function of $k$ only. By setting what 
+remains to the ratio of the empirical mean to median, the result will be an expression we can use to obtain an initial 
+estimate of&nbsp;$k$:</p>
+<p>$$
+\frac{E[X]}{\mathrm{median}} = 1.421915 = \frac{\Gamma(1 + 1/k)}{\mathrm{Ln}(2)^{1/k}}&nbsp;$$</p>
+<p>As a consequence of the Gamma function in the right-hand-side numerator, we cannot solve for $k$ using direct methods. 
+In R, we use <code>uniroot</code> to estimate roots of univariate functions numerically. In the code that follows, we implement a 
+closure which returns a function which then can be evaluated and <code>k</code>, it&#8217;s sole argument, which <code>uniroot</code> will use to 
+zero-in on a&nbsp;solution:</p>
+<div class="highlight"><pre><span></span><code><span class="c1"># Example solving for Weibull shape parameter using uniroot.</span>
+<span class="n">lossData</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">c</span><span class="p">(</span><span class="m">19999</span><span class="p">,</span><span class="w">  </span><span class="m">19974</span><span class="p">,</span><span class="w">  </span><span class="m">5051</span><span class="p">,</span><span class="w">  </span><span class="m">7179</span><span class="p">,</span><span class="w"> </span><span class="m">34416</span><span class="p">,</span><span class="w">  </span><span class="m">56840</span><span class="p">,</span><span class="w">  </span><span class="m">4420</span><span class="p">,</span><span class="w">  </span><span class="m">6558</span><span class="p">)</span>
+
+<span class="c1"># Calling shapeFunc returns a function, which can then be used by uniroot to find a solution.</span>
+<span class="n">shapeFunc</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">function</span><span class="p">(</span><span class="n">v</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="c1"># Compute ratio of empirical mean to median.</span>
+<span class="w">    </span><span class="n">ratio</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">mean</span><span class="p">(</span><span class="n">v</span><span class="p">)</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="nf">median</span><span class="p">(</span><span class="n">v</span><span class="p">)</span>
+<span class="w">    </span><span class="nf">function</span><span class="p">(</span><span class="n">k</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nf">return</span><span class="p">((</span><span class="nf">gamma</span><span class="p">(</span><span class="m">1</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="p">(</span><span class="m">1</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="n">k</span><span class="p">))</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="p">(</span><span class="nf">log</span><span class="p">(</span><span class="m">2</span><span class="p">)</span><span class="o">^</span><span class="p">(</span><span class="m">1</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="n">k</span><span class="p">)))</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">ratio</span><span class="p">)</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="p">}</span>
+
+<span class="c1"># Evaluate shapeFunc. ff is a function which takes a single argument `k`. </span>
+<span class="n">ff</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">shapeFunc</span><span class="p">(</span><span class="n">lossData</span><span class="p">)</span>
+</code></pre></div>
+
+<p>The body of <code>shapeFunc</code> is a straightforward implementation of our ratio expression above. The only difference is the 
+expression is set to 0 by subtracting the ratio (1.421915) from both sides. 
+We have our function <code>ff</code> and the interval over which to search for a solution 
+$0 \lt k \leq \mathrm{max}(\mathrm{lossData}))$. The call to <code>uniroot</code> is made as&nbsp;follows:</p>
+<div class="highlight"><pre><span></span><code><span class="n">shape</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">uniroot</span><span class="p">(</span><span class="n">ff</span><span class="p">,</span><span class="w"> </span><span class="n">interval</span><span class="o">=</span><span class="nf">c</span><span class="p">(</span><span class="n">.Machine</span><span class="o">$</span><span class="n">double.eps</span><span class="p">,</span><span class="w"> </span><span class="nf">max</span><span class="p">(</span><span class="n">lossData</span><span class="p">)))</span><span class="o">$</span><span class="n">root</span>
+</code></pre></div>
+
+<p>Since $k$ is strictly greater than 0, we set the search interval lower bound to <code>.Machine$double.eps</code>, which represents the 
+smallest positive floating-point number $x$ such that $1 + x != 1$. Our initial estimate for the shape parameter given our 
+data is $\hat{k} = 1.018877$. To determine an initial estimate for the scale parameter, we can use the fact&nbsp;that </p>
+<p>$$
+\lambda = \frac{E[X]}{\Gamma(1 + 1 / \hat{k})},&nbsp;$$</p>
+<p>resulting in $\hat{\lambda} =&nbsp;19454.27$. </p>
+<h3>Obtaining Maximum Likelihood&nbsp;Estimates</h3>
+<p>With our hypothesized distribution and initial parameters, obtaining maximum likelihood estimates are straightforward. The 
+initial parameter estimation code is included again for&nbsp;convenience:</p>
+<div class="highlight"><pre><span></span><code><span class="c1"># Computing maximum likelihood estimates using fitdistrplus.</span>
+<span class="nf">library</span><span class="p">(</span><span class="s">&quot;fitdistplus&quot;</span><span class="p">)</span>
+
+<span class="n">lossData</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">c</span><span class="p">(</span><span class="m">19999</span><span class="p">,</span><span class="w">  </span><span class="m">19974</span><span class="p">,</span><span class="w">  </span><span class="m">5051</span><span class="p">,</span><span class="w">  </span><span class="m">7179</span><span class="p">,</span><span class="w"> </span><span class="m">34416</span><span class="p">,</span><span class="w">  </span><span class="m">56840</span><span class="p">,</span><span class="w">  </span><span class="m">4420</span><span class="p">,</span><span class="w">  </span><span class="m">6558</span><span class="p">)</span>
+
+<span class="n">shapeFunc</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">function</span><span class="p">(</span><span class="n">v</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="c1"># Compute ratio of empirical mean to median.</span>
+<span class="w">    </span><span class="n">ratio</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">mean</span><span class="p">(</span><span class="n">v</span><span class="p">)</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="nf">median</span><span class="p">(</span><span class="n">v</span><span class="p">)</span>
+<span class="w">    </span><span class="nf">function</span><span class="p">(</span><span class="n">k</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nf">return</span><span class="p">((</span><span class="nf">gamma</span><span class="p">(</span><span class="m">1</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="p">(</span><span class="m">1</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="n">k</span><span class="p">))</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="p">(</span><span class="nf">log</span><span class="p">(</span><span class="m">2</span><span class="p">)</span><span class="o">^</span><span class="p">(</span><span class="m">1</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="n">k</span><span class="p">)))</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">ratio</span><span class="p">)</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="p">}</span>
+
+<span class="c1"># Evaluate shapeFunc. ff is a function which takes a single argument `k`. </span>
+<span class="n">ff</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">shapeFunc</span><span class="p">(</span><span class="n">lossData</span><span class="p">)</span>
+
+<span class="c1"># Initial shape parameter estimate.</span>
+<span class="n">shape0</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">uniroot</span><span class="p">(</span><span class="n">ff</span><span class="p">,</span><span class="w"> </span><span class="n">interval</span><span class="o">=</span><span class="nf">c</span><span class="p">(</span><span class="n">.Machine</span><span class="o">$</span><span class="n">double.eps</span><span class="p">,</span><span class="w"> </span><span class="nf">max</span><span class="p">(</span><span class="n">lossData</span><span class="p">)))</span><span class="o">$</span><span class="n">root</span>
+
+<span class="c1"># Initial scale parameter estimate.</span>
+<span class="n">scale0</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">mean</span><span class="p">(</span><span class="n">lossData</span><span class="p">)</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="nf">gamma</span><span class="p">(</span><span class="m">1</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="p">(</span><span class="m">1</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="n">shape0</span><span class="p">))</span>
+
+<span class="c1"># Obtain mle parameter estimates.</span>
+<span class="n">mleFit</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">fitdistrplus</span><span class="o">::</span><span class="nf">fitdist</span><span class="p">(</span>
+<span class="w">    </span><span class="n">lossData</span><span class="p">,</span><span class="w"> </span><span class="n">distr</span><span class="o">=</span><span class="s">&quot;weibull&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">method</span><span class="o">=</span><span class="s">&quot;mle&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">start</span><span class="o">=</span><span class="nf">list</span><span class="p">(</span><span class="n">shape</span><span class="o">=</span><span class="n">shape0</span><span class="p">,</span><span class="w"> </span><span class="n">scale</span><span class="o">=</span><span class="n">scale0</span><span class="p">)</span>
+<span class="w">    </span><span class="p">)</span>
+</code></pre></div>
+
+<p>Accessing <code>mleFit</code><span class="quo">&#8216;</span>s <code>estimate</code> attribute, parameter estimates&nbsp;are:</p>
+<div class="highlight"><pre><span></span><code><span class="o">&gt;</span><span class="w"> </span><span class="n">mleFit</span><span class="o">$</span><span class="n">estimate</span>
+<span class="w">        </span><span class="n">shape</span><span class="w">        </span><span class="n">scale</span><span class="w"> </span>
+<span class="w">    </span><span class="m">1.177033</span><span class="w"> </span><span class="m">20525.761478</span><span class="w"> </span>
+</code></pre></div>
+
+<p>Which is close to our initial starting parameter&nbsp;estimates. </p>
+            </div>
+            <!-- /.entry-content -->
+        </article>
+    </section>
+
+        </div>
+        <div class="col-sm-3" id="sidebar">
+            <aside>
+<div id="aboutme">
+        <p>
+            <img width="100%" class="img-thumbnail" src="./images/JDTGOOG.JPG"/>
+        </p>
+    <p>
+      <strong>About James D. Triveri</strong><br/>
+        Data Scientist interested in ML/DL, automation and scientific computing.
+    </p>
+</div><!-- Sidebar -->
+<section class="well well-sm">
+  <ul class="list-group list-group-flush">
+
+<!-- Sidebar/Links -->
+<li class="list-group-item">
+  <h4><i class="fa fa-external-link-square fa-lg"></i><span class="icon-label">Links</span></h4>
+  <ul class="list-group" id="links">
+    <li class="list-group-item">
+      <a href="http://python.org/" target="_blank">Python.org</a>
+    </li>
+    <li class="list-group-item">
+      <a href="https://docs.python.org/3/py-modindex.html" target="_blank">The Python Module Index</a>
+    </li>
+    <li class="list-group-item">
+      <a href="https://scikit-learn.org/stable/documentation.html" target="_blank">Scikit-Learn</a>
+    </li>
+    <li class="list-group-item">
+      <a href="https://www.scipy.org/docs.html" target="_blank">Scipy Docs</a>
+    </li>
+    <li class="list-group-item">
+      <a href="https://openai.com/" target="_blank">OpenAI</a>
+    </li>
+  </ul>
+</li>
+<!-- End Sidebar/Links -->
+
+<!-- Sidebar/Images -->
+<li class="list-group-item">
+  <ul class="list-group" id="links">
+    <img width="100%" class="img-thumbnail" src="images/Sidebar/sidebarA.jpg"/>
+    <img width="100%" class="img-thumbnail" src="images/Sidebar/sidebarB.png"/>
+    <img width="100%" class="img-thumbnail" src="images/Sidebar/sidebarC.jpg"/>
+    <img width="100%" class="img-thumbnail" src="images/Sidebar/sidebarD.jpg"/>
+  </ul>
+</li>
+<!-- End Sidebar/Images -->
+  </ul>
+</section>
+<!-- End Sidebar -->            </aside>
+        </div>
+    </div>
+</div>
+<!-- End Content Container -->
+
+<footer>
+   <div class="container-fluid">
+      <hr>
+      <div class="row">
+         <div class="col-xs-10">&copy; 2023 James D. Triveri
+            &middot; Powered by <a href="https://github.com/getpelican/pelican-themes/tree/master/pelican-bootstrap3" target="_blank">pelican-bootstrap3</a>,
+            <a href="http://docs.getpelican.com/" target="_blank">Pelican</a>,
+            <a href="http://getbootstrap.com" target="_blank">Bootstrap</a>         </div>
+         <div class="col-xs-2"><p class="pull-right"><i class="fa fa-arrow-up"></i> <a href="#">Back to top</a></p></div>
+      </div>
+   </div>
+</footer>
+<script src="./theme/js/jquery.min.js"></script>
+
+<!-- Include all compiled plugins (below), or include individual files as needed -->
+<script src="./theme/js/bootstrap.min.js"></script>
+
+<!-- Enable responsive features in IE8 with Respond.js (https://github.com/scottjehl/Respond) -->
+<script src="./theme/js/respond.min.js"></script>
+
+
+    <script src="./theme/js/bodypadding.js"></script>
+
+
+</body>
+</html>

@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en" prefix="og: http://ogp.me/ns# fb: https://www.facebook.com/2008/fbml">
+<head>
+    <title>Simple Example of RSA Encryption and Decryption - The Pleasure of Finding Things Out</title>
+    <!-- Using the latest rendering mode for IE -->
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+
+
+<link rel="canonical" href="./simple-example-of-rsa-encryption-and-decryption.html">
+
+        <meta name="author" content="James D. Triveri" />
+        <meta name="keywords" content="Python" />
+        <meta name="description" content="An illustrative example of RSA encryption and decryption using small primes" />
+
+        <meta property="og:site_name" content="The Pleasure of Finding Things Out" />
+        <meta property="og:type" content="article"/>
+        <meta property="og:title" content="Simple Example of RSA Encryption and Decryption"/>
+        <meta property="og:url" content="./simple-example-of-rsa-encryption-and-decryption.html"/>
+        <meta property="og:description" content="An illustrative example of RSA encryption and decryption using small primes"/>
+        <meta property="article:published_time" content="2023-04-18" />
+            <meta property="article:section" content="Python" />
+            <meta property="article:tag" content="Python" />
+            <meta property="article:author" content="James D. Triveri" />
+
+
+
+    <!-- Bootstrap -->
+        <link rel="stylesheet" href="./theme/css/bootstrap.Yeti.min.css" type="text/css"/>
+    <link href="./theme/css/font-awesome.min.css" rel="stylesheet">
+
+    <link href="./theme/css/pygments/default.css" rel="stylesheet">
+        <link href="./theme/css/typogrify.css" rel="stylesheet">
+    <link rel="stylesheet" href="./theme/css/style.css" type="text/css"/>
+        <link href="./static/css/custom.css" rel="stylesheet">
+
+
+
+
+</head>
+<body>
+
+<div class="navbar navbar-inverse navbar-fixed-top" role="navigation">
+    <div class="container-fluid">
+        <div class="navbar-header">
+            <button type="button" class="navbar-toggle" data-toggle="collapse" data-target=".navbar-ex1-collapse">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            <a href="./" class="navbar-brand">
+The Pleasure of Finding Things Out            </a>
+        </div>
+        <div class="collapse navbar-collapse navbar-ex1-collapse">
+            <ul class="nav navbar-nav">
+                         <li><a href="./pages/about-me.html">
+                             About&nbsp;Me
+                          </a></li>
+                        <li >
+                            <a href="./category/machine-learning.html">Machine learning</a>
+                        </li>
+                        <li class="active">
+                            <a href="./category/python.html">Python</a>
+                        </li>
+                        <li >
+                            <a href="./category/r.html">R</a>
+                        </li>
+                        <li >
+                            <a href="./category/statistical-modeling.html">Statistical modeling</a>
+                        </li>
+            </ul>
+            <ul class="nav navbar-nav navbar-right">
+            </ul>
+        </div>
+        <!-- /.navbar-collapse -->
+    </div>
+</div> <!-- /.navbar -->
+
+<!-- Banner -->
+<!-- End Banner -->
+
+<!-- Content Container -->
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-sm-9">
+    <section id="content">
+        <article>
+            <header class="page-header">
+                <h1>
+                    <a href="./simple-example-of-rsa-encryption-and-decryption.html"
+                       rel="bookmark"
+                       title="Permalink to Simple Example of RSA Encryption and Decryption">
+                        Simple Example of <span class="caps">RSA</span> Encryption and&nbsp;Decryption
+                    </a>
+                </h1>
+            </header>
+            <div class="entry-content">
+                <div class="panel">
+                    <div class="panel-body">
+<footer class="post-info">
+    <span class="label label-default">Date</span>
+    <span class="published">
+        <i class="fa fa-calendar"></i><time datetime="2023-04-18T00:00:00-05:00"> 2023-04-18</time>
+    </span>
+
+
+
+
+
+<span class="label label-default">Tags</span>
+	<a href="./tag/python.html">Python</a>
+    
+</footer><!-- /.post-info -->                    </div>
+                </div>
+                <p>The <span class="caps">RSA</span> algorithm is named after Ron Rivest, Adi Shamir and Len Adleman, who invented the system in 1977. The <span class="caps">RSA</span> cryptosystem is the 
+most widely-used public key cryptography algorithm in the world. It can be used to encrypt a message without requiring the exchange of 
+a secret key. <span class="caps">RSA</span> exploits the fact that while multiplying large integers is trivial, determining the factors of large integers is much 
+more difficult. The original paper introducing the <span class="caps">RSA</span> cryptosystem is quite readable, and is available for downloaded 
+<a href="https://people.csail.mit.edu/rivest/Rsapaper.pdf">here</a>.</p>
+<p>In this post, we&#8217;ll walk through each step of the <span class="caps">RSA</span> algorithm (key generation, key distribution, encryption and decryption) with an 
+illustrative example using small&nbsp;primes.    </p>
+<h2><span class="caps">RSA</span>&nbsp;Algorithm</h2>
+<ol>
+<li>Generate two prime numbers $p,q$ then compute their product&nbsp;$n$.              </li>
+<li>Compute <em>Euler&#8217;s totient</em>: $\phi = (p - 1)(q -&nbsp;1)$.           </li>
+<li>Select a number $e$ that is relatively coprime with $(p -1)$ and $(q -&nbsp;1)$.             </li>
+<li>Compute $d$ such that $ed \equiv 1 (mod&nbsp;\phi)$.        </li>
+</ol>
+<p>Once we have $n$, $d$ and $e$, we specify our public key as $(n, e)$ and private key as $(n,&nbsp;d)$.</p>
+<p>For a plain text message $m$, we can generate the corresponding ciphertext $c$ by&nbsp;computing:</p>
+<p>$$
+c = m^{e} \bmod n&nbsp;$$</p>
+<p>Similarly, we can convert the ciphertext $c$ back to plaintext $m$&nbsp;using:   </p>
+<p>$$
+m = c^{d} \bmod n&nbsp;$$</p>
+<h2>Demonstration</h2>
+<p>In order to use the <span class="caps">RSA</span> cryptosystem, it is necessary to use an encoding to 
+represent letters as numbers. A well know mapping of english letters to numeric 
+values is the <a href="https://en.wikipedia.org/wiki/ASCII"><span class="caps">ASCII</span> character encoding</a>.
+Using the <span class="caps">ASCII</span> encoding, <strong><span class="caps">HELP</span>!</strong> would be encoded as 
+<strong>72 - 69 - 76 - 80 - 33</strong>.     </p>
+<p>We start by generating two primes then compute their product. In practice, the 
+modulus can be 1024-bits or greater. A 1024-bit modulus corresponds to a number 
+with over 300 decimal&nbsp;digits[ref]https://www.di-mgt.com.au/rsa_alg.html[/ref].</p>
+<p>As stated above, we select $p$ and $q$ then compute&nbsp;$n$:</p>
+<p>$$
+\begin{align}
+p&amp;=19\
+q&amp;=29\
+n&amp;=pq = 551
+\end{align}&nbsp;$$</p>
+<p>Then we compute Euler&#8217;s&nbsp;totient:   </p>
+<p>$$
+\phi = (p -1)(q-1) = 18 \times 28 = 504&nbsp;$$</p>
+<p>Next we need to find a number $e$, where $1 &lt; e &lt; \phi$ that is relatively 
+coprime with $(p - 1)$ and $(q - 1)$. In other words, find $e$ such that the 
+greatest common divisor of $\phi$ and $e$ is 1. For this example, we set&nbsp;$e=17$.  </p>
+<p>Finally, we need to find $d$ such that $ed \equiv 1 (mod \phi)$. This can be 
+accomplished using the following function implemented in&nbsp;Python:    </p>
+<div class="highlight"><pre><span></span><code><span class="kn">import</span> <span class="nn">itertools</span>
+
+<span class="k">def</span> <span class="nf">get_d</span><span class="p">(</span><span class="n">e</span><span class="p">,</span> <span class="n">phi</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Compute d such that e * d = 1 % phi.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">itertools</span><span class="o">.</span><span class="n">count</span><span class="p">(</span><span class="n">start</span><span class="o">=</span><span class="nb">int</span><span class="p">(</span><span class="n">phi</span> <span class="o">/</span> <span class="n">e</span><span class="p">)):</span>
+        <span class="n">v</span> <span class="o">=</span> <span class="p">(</span><span class="n">e</span> <span class="o">*</span> <span class="n">i</span><span class="p">)</span> <span class="o">%</span> <span class="n">phi</span>
+        <span class="k">if</span> <span class="n">v</span><span class="o">==</span><span class="mi">1</span><span class="p">:</span> <span class="k">break</span>
+    <span class="k">return</span><span class="p">(</span><span class="n">i</span><span class="p">)</span>
+</code></pre></div>
+
+<p>Running <code>get_d</code> yields $89$. To&nbsp;summarize:</p>
+<p>$$
+\begin{align}
+p&amp;=19\
+q&amp;=29\
+n&amp;=551\
+\phi&amp;=504\
+e&amp;=17\
+d&amp;=89
+\end{align}&nbsp;$$</p>
+<p>Given these values, our public key is $(551, 17)$ and our private key is 
+$(551,&nbsp;89)$.   </p>
+<p>Given our numerically-encoded plaintext <strong><span class="caps">HELP</span>!</strong> as $72 - 69 - 76 - 80 - 33$, 
+we generate the ciphertext. Recall that in order to convert plaintext to 
+ciphertext, we use $c = m^{e} \bmod n$. Note that Python&#8217;s <code>pow</code> function takes 
+an optional 3rd parameter representing the modulus. For example, calling 
+<code>pow(a, b, c)</code> calculates $a^{b}\bmod&nbsp;c$:</p>
+<div class="highlight"><pre><span></span><code><span class="o">&gt;&gt;&gt;</span> <span class="n">p</span><span class="p">,</span> <span class="n">q</span><span class="p">,</span> <span class="n">n</span><span class="p">,</span> <span class="n">phi</span><span class="p">,</span> <span class="n">e</span><span class="p">,</span> <span class="n">d</span> <span class="o">=</span> <span class="mi">19</span><span class="p">,</span> <span class="mi">29</span> <span class="mi">551</span><span class="p">,</span> <span class="mi">504</span><span class="p">,</span> <span class="mi">17</span><span class="p">,</span> <span class="mi">89</span>
+<span class="o">&gt;&gt;&gt;</span> <span class="n">m</span> <span class="o">=</span> <span class="p">[</span><span class="mi">72</span><span class="p">,</span> <span class="mi">69</span><span class="p">,</span> <span class="mi">76</span><span class="p">,</span> <span class="mi">80</span><span class="p">,</span> <span class="mi">33</span><span class="p">]</span>
+<span class="o">&gt;&gt;&gt;</span> <span class="n">c</span> <span class="o">=</span> <span class="p">[[</span><span class="nb">pow</span><span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="n">e</span><span class="p">,</span> <span class="n">n</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">m</span><span class="p">]</span>
+<span class="o">&gt;&gt;&gt;</span> <span class="nb">print</span><span class="p">(</span><span class="n">c</span><span class="p">)</span>
+<span class="p">[</span><span class="mi">185</span><span class="p">,</span> <span class="mi">293</span><span class="p">,</span> <span class="mi">171</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">528</span><span class="p">]</span>
+</code></pre></div>
+
+<p>As expected, when we print <code>c</code>, the numbers are completely different than the 
+plaintext&nbsp;encoding.    </p>
+<p>This message can only be decoded by the entity in possession of the private 
+key. Let&#8217;s imagine that we received a message from a counter party who 
+generated the ciphertext using the public key. We need to decrypt the message 
+using our private key. To do so, we calculate $m = c^{d} \bmod n$. In Python, 
+we can obtain the <span class="caps">ASCII</span> character associated with an integer by calling the 
+$chr$ function. Picking up where we left off in the previous example, we first 
+convert the ciphertext to plaintext, then the plaintext array of integers to a&nbsp;string: </p>
+<div class="highlight"><pre><span></span><code><span class="o">&gt;&gt;&gt;</span> <span class="n">m</span> <span class="o">=</span> <span class="p">[</span><span class="nb">pow</span><span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="n">d</span><span class="p">,</span> <span class="n">n</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">c</span><span class="p">]</span>
+<span class="o">&gt;&gt;&gt;</span> <span class="nb">print</span><span class="p">(</span><span class="n">m</span><span class="p">)</span>
+<span class="p">[</span><span class="mi">72</span><span class="p">,</span> <span class="mi">69</span><span class="p">,</span> <span class="mi">76</span><span class="p">,</span> <span class="mi">80</span><span class="p">,</span> <span class="mi">33</span><span class="p">]</span>
+<span class="o">&gt;&gt;&gt;</span> <span class="s2">&quot;&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">chr</span><span class="p">(</span><span class="n">i</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">m</span><span class="p">)</span>
+<span class="n">HELP</span><span class="err">!</span>
+</code></pre></div>
+
+<h2>Breaking <span class="caps">RSA</span> with&nbsp;Brute-Force</h2>
+<p>Recently I came across a 
+<a href="https://crypto.stackexchange.com/questions/3043/how-much-computing-resource-is-required-to-brute-force-rsa">question</a> posted to crypto.statsexchange inquiring about the computing resources that would be required to brute-force 
+enumerate every possible <span class="caps">RSA</span> {1024, 2048,4096}-bit key-pair. Here was a
+response I found particularly&nbsp;helpful:</p>
+<blockquote>
+<p>Even if you had infinite computing power you would not have the space to 
+store all these public/private key pairs (I&#8217;ll spare you the semimathematical 
+posts comparing the space required to the number of protons in the universe). 
+Many people have trouble perceiving just how big a number $2^{2048}$ is, it&#8217;s 
+a common error. A much more practical approach instead is to harvest as many 
+real-life public keys as possible, and trying to find common factors between 
+them. It actually works because of poor key generation&nbsp;practices.    </p>
+</blockquote>
+            </div>
+            <!-- /.entry-content -->
+        </article>
+    </section>
+
+        </div>
+        <div class="col-sm-3" id="sidebar">
+            <aside>
+<div id="aboutme">
+        <p>
+            <img width="100%" class="img-thumbnail" src="./images/JDTGOOG.JPG"/>
+        </p>
+    <p>
+      <strong>About James D. Triveri</strong><br/>
+        Data Scientist interested in ML/DL, automation and scientific computing.
+    </p>
+</div><!-- Sidebar -->
+<section class="well well-sm">
+  <ul class="list-group list-group-flush">
+
+<!-- Sidebar/Links -->
+<li class="list-group-item">
+  <h4><i class="fa fa-external-link-square fa-lg"></i><span class="icon-label">Links</span></h4>
+  <ul class="list-group" id="links">
+    <li class="list-group-item">
+      <a href="http://python.org/" target="_blank">Python.org</a>
+    </li>
+    <li class="list-group-item">
+      <a href="https://docs.python.org/3/py-modindex.html" target="_blank">The Python Module Index</a>
+    </li>
+    <li class="list-group-item">
+      <a href="https://scikit-learn.org/stable/documentation.html" target="_blank">Scikit-Learn</a>
+    </li>
+    <li class="list-group-item">
+      <a href="https://www.scipy.org/docs.html" target="_blank">Scipy Docs</a>
+    </li>
+    <li class="list-group-item">
+      <a href="https://openai.com/" target="_blank">OpenAI</a>
+    </li>
+  </ul>
+</li>
+<!-- End Sidebar/Links -->
+
+<!-- Sidebar/Images -->
+<li class="list-group-item">
+  <ul class="list-group" id="links">
+    <img width="100%" class="img-thumbnail" src="images/Sidebar/sidebarA.jpg"/>
+    <img width="100%" class="img-thumbnail" src="images/Sidebar/sidebarB.png"/>
+    <img width="100%" class="img-thumbnail" src="images/Sidebar/sidebarC.jpg"/>
+    <img width="100%" class="img-thumbnail" src="images/Sidebar/sidebarD.jpg"/>
+  </ul>
+</li>
+<!-- End Sidebar/Images -->
+  </ul>
+</section>
+<!-- End Sidebar -->            </aside>
+        </div>
+    </div>
+</div>
+<!-- End Content Container -->
+
+<footer>
+   <div class="container-fluid">
+      <hr>
+      <div class="row">
+         <div class="col-xs-10">&copy; 2023 James D. Triveri
+            &middot; Powered by <a href="https://github.com/getpelican/pelican-themes/tree/master/pelican-bootstrap3" target="_blank">pelican-bootstrap3</a>,
+            <a href="http://docs.getpelican.com/" target="_blank">Pelican</a>,
+            <a href="http://getbootstrap.com" target="_blank">Bootstrap</a>         </div>
+         <div class="col-xs-2"><p class="pull-right"><i class="fa fa-arrow-up"></i> <a href="#">Back to top</a></p></div>
+      </div>
+   </div>
+</footer>
+<script src="./theme/js/jquery.min.js"></script>
+
+<!-- Include all compiled plugins (below), or include individual files as needed -->
+<script src="./theme/js/bootstrap.min.js"></script>
+
+<!-- Enable responsive features in IE8 with Respond.js (https://github.com/scottjehl/Respond) -->
+<script src="./theme/js/respond.min.js"></script>
+
+
+    <script src="./theme/js/bodypadding.js"></script>
+
+
+</body>
+</html>

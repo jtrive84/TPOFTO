@@ -1,9 +1,9 @@
-Title: Determining Histogram Bin Width using the Freedman-Diaconis Rule                                               
-Date: 2019-07-01                                  
+Title: Determining Histogram Bin Width using the Freedman-Diaconis Rule                                                 
+Date: 2023-04-23                                      
 Category: Statistical Modeling                                      
-Tags: Statistical Modeling                           
+Tags: Statistical Modeling , Python                        
 Authors: James D. Triveri                                              
-Summary: Using the Freedman-Diaconis Rule to determine optimal histogram bin width        
+Summary: Using the Freedman-Diaconis Rule to determine optimal histogram bin width            
 
 
 
@@ -164,9 +164,9 @@ hist_.savefig("histogram.png")
 
 Running this code produces the following:
  
-<center>
-![BinWidth2]({static}/images/BinWidth2.png)    
-</center> 
+
+![binwidth02](https://drive.google.com/uc?export=view&id=1dVyrX3OUBMkfwaozyJGEWToukec1r13-)  
+
 
 
 If the suggested bin width/number of bins seems too few or too great, use 

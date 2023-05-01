@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="en" prefix="og: http://ogp.me/ns# fb: https://www.facebook.com/2008/fbml">
+<head>
+    <title>Parameterized Decorators in Python - The Pleasure of Finding Things Out</title>
+    <!-- Using the latest rendering mode for IE -->
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+
+
+<link rel="canonical" href="./parameterized-decorators-in-python.html">
+
+        <meta name="author" content="James D. Triveri" />
+        <meta name="keywords" content="Python" />
+        <meta name="description" content="Using parameterized decorators in Python with applications" />
+
+        <meta property="og:site_name" content="The Pleasure of Finding Things Out" />
+        <meta property="og:type" content="article"/>
+        <meta property="og:title" content="Parameterized Decorators in Python"/>
+        <meta property="og:url" content="./parameterized-decorators-in-python.html"/>
+        <meta property="og:description" content="Using parameterized decorators in Python with applications"/>
+        <meta property="article:published_time" content="2023-04-23" />
+            <meta property="article:section" content="Python" />
+            <meta property="article:tag" content="Python" />
+            <meta property="article:author" content="James D. Triveri" />
+
+
+
+    <!-- Bootstrap -->
+        <link rel="stylesheet" href="./theme/css/bootstrap.Yeti.min.css" type="text/css"/>
+    <link href="./theme/css/font-awesome.min.css" rel="stylesheet">
+
+    <link href="./theme/css/pygments/default.css" rel="stylesheet">
+        <link href="./theme/css/typogrify.css" rel="stylesheet">
+    <link rel="stylesheet" href="./theme/css/style.css" type="text/css"/>
+        <link href="./static/css/custom.css" rel="stylesheet">
+
+
+
+
+</head>
+<body>
+
+<div class="navbar navbar-inverse navbar-fixed-top" role="navigation">
+    <div class="container-fluid">
+        <div class="navbar-header">
+            <button type="button" class="navbar-toggle" data-toggle="collapse" data-target=".navbar-ex1-collapse">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            <a href="./" class="navbar-brand">
+The Pleasure of Finding Things Out            </a>
+        </div>
+        <div class="collapse navbar-collapse navbar-ex1-collapse">
+            <ul class="nav navbar-nav">
+                         <li><a href="./pages/about-me.html">
+                             About&nbsp;Me
+                          </a></li>
+                        <li >
+                            <a href="./category/machine-learning.html">Machine learning</a>
+                        </li>
+                        <li class="active">
+                            <a href="./category/python.html">Python</a>
+                        </li>
+                        <li >
+                            <a href="./category/r.html">R</a>
+                        </li>
+                        <li >
+                            <a href="./category/statistical-modeling.html">Statistical modeling</a>
+                        </li>
+            </ul>
+            <ul class="nav navbar-nav navbar-right">
+            </ul>
+        </div>
+        <!-- /.navbar-collapse -->
+    </div>
+</div> <!-- /.navbar -->
+
+<!-- Banner -->
+<!-- End Banner -->
+
+<!-- Content Container -->
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-sm-9">
+    <section id="content">
+        <article>
+            <header class="page-header">
+                <h1>
+                    <a href="./parameterized-decorators-in-python.html"
+                       rel="bookmark"
+                       title="Permalink to Parameterized Decorators in Python">
+                        Parameterized Decorators in&nbsp;Python
+                    </a>
+                </h1>
+            </header>
+            <div class="entry-content">
+                <div class="panel">
+                    <div class="panel-body">
+<footer class="post-info">
+    <span class="label label-default">Date</span>
+    <span class="published">
+        <i class="fa fa-calendar"></i><time datetime="2023-04-23T00:00:00-05:00"> 2023-04-23</time>
+    </span>
+
+
+
+
+
+<span class="label label-default">Tags</span>
+	<a href="./tag/python.html">Python</a>
+    
+</footer><!-- /.post-info -->                    </div>
+                </div>
+                <p>A decorator is a function that takes another function and extends the behavior of the latter function without explicitly modifying it. 
+In what follows, I demonstrate a practical use case for parameterized decorators focusing on units&nbsp;conversion. </p>
+<p>To illustrate, we refer to the <code>getspeed</code> function used to estimate the spped of the International Space Station w.r.t. the surface of 
+the Earth. <code>getspeed</code> returns a scalar representing the average speed of the <span class="caps">ISS</span> over a given time differential. The result is returned 
+in kilometers per hour, with no parameter available to apply a change of units. To incorporate this functionality, we can either (1) 
+add a units parameter to change the units of the calculated speed prior to <code>getspeed</code> returning, or (2) implement a decorator<br>
+specifying the units of the calculated value fully outside of <code>getspeed</code>. The declarations for <code>haverdist</code>, <code>getiss</code> and <code>getspeed</code>
+are provided&nbsp;below:</p>
+<div class="highlight"><pre><span></span><code><span class="kn">import</span> <span class="nn">datetime</span>
+<span class="kn">import</span> <span class="nn">math</span>
+<span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">import</span> <span class="nn">sys</span>
+<span class="kn">import</span> <span class="nn">time</span>
+<span class="kn">import</span> <span class="nn">requests</span>
+
+
+<span class="k">def</span> <span class="nf">haverdist</span><span class="p">(</span><span class="n">coords1</span><span class="p">,</span> <span class="n">coords2</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Compute distance between geographic coordinate pairs.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    coords1: tuple or list;</span>
+<span class="sd">        (lat1, lon1) of first geolocation.</span>
+
+<span class="sd">    coords2: tuple or list</span>
+<span class="sd">        (lat2, lon2) of second geolocation.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    float</span>
+<span class="sd">        Distance in kilometers between coords1 and coords2.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># Convert degrees to radians then compute differences.</span>
+    <span class="n">R</span> <span class="o">=</span> <span class="mi">6367</span> 
+    <span class="n">rlat1</span><span class="p">,</span> <span class="n">rlon1</span> <span class="o">=</span> <span class="p">[</span><span class="n">ii</span> <span class="o">*</span> <span class="n">math</span><span class="o">.</span><span class="n">pi</span> <span class="o">/</span> <span class="mi">180</span> <span class="k">for</span> <span class="n">ii</span> <span class="ow">in</span> <span class="n">coords1</span><span class="p">]</span>
+    <span class="n">rlat2</span><span class="p">,</span> <span class="n">rlon2</span> <span class="o">=</span> <span class="p">[</span><span class="n">ii</span> <span class="o">*</span> <span class="n">math</span><span class="o">.</span><span class="n">pi</span> <span class="o">/</span> <span class="mi">180</span> <span class="k">for</span> <span class="n">ii</span> <span class="ow">in</span> <span class="n">coords2</span><span class="p">]</span>
+    <span class="n">drlat</span><span class="p">,</span> <span class="n">drlon</span> <span class="o">=</span> <span class="p">(</span><span class="n">rlat2</span> <span class="o">-</span> <span class="n">rlat1</span><span class="p">),</span> <span class="p">(</span><span class="n">rlon2</span> <span class="o">-</span> <span class="n">rlon1</span><span class="p">)</span>
+    <span class="n">inner</span> <span class="o">=</span> <span class="p">(</span><span class="n">math</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">drlat</span> <span class="o">/</span> <span class="mf">2.</span><span class="p">))</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="p">(</span><span class="n">math</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">rlat1</span><span class="p">))</span> <span class="o">*</span> \
+            <span class="p">(</span><span class="n">math</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">rlat2</span><span class="p">))</span> <span class="o">*</span> <span class="p">(</span><span class="n">math</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">drlon</span> <span class="o">/</span><span class="mf">2.</span><span class="p">))</span><span class="o">**</span><span class="mi">2</span>
+    <span class="k">return</span><span class="p">(</span><span class="mf">2.0</span> <span class="o">*</span> <span class="n">R</span> <span class="o">*</span> <span class="n">math</span><span class="o">.</span><span class="n">asin</span><span class="p">(</span><span class="nb">min</span><span class="p">(</span><span class="mf">1.</span><span class="p">,</span> <span class="n">math</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">inner</span><span class="p">))))</span>
+
+
+<span class="k">def</span> <span class="nf">getiss</span><span class="p">():</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Get timestamped geo-coordinates of International Space Station.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    dict</span>
+<span class="sd">        Dictionary with keys &quot;latitude&quot;, &quot;longitude&quot; and </span>
+<span class="sd">        &quot;timestamp&quot; indicating time and position of ISS. </span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">dpos</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
+    <span class="n">resp</span> <span class="o">=</span> <span class="n">requests</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;http://api.open-notify.org/iss-now.json&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">json</span><span class="p">()</span>
+    <span class="k">if</span> <span class="n">resp</span><span class="p">[</span><span class="s2">&quot;message&quot;</span><span class="p">]</span> <span class="o">!=</span> <span class="s2">&quot;success&quot;</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;Unable to access Open Notify API.&quot;</span><span class="p">)</span>
+    <span class="n">dpos</span><span class="p">[</span><span class="s2">&quot;timestamp&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">resp</span><span class="p">[</span><span class="s2">&quot;timestamp&quot;</span><span class="p">]</span>
+    <span class="n">dpos</span><span class="p">[</span><span class="s2">&quot;latitude&quot;</span><span class="p">]</span>  <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">resp</span><span class="p">[</span><span class="s2">&quot;iss_position&quot;</span><span class="p">][</span><span class="s2">&quot;latitude&quot;</span><span class="p">])</span>
+    <span class="n">dpos</span><span class="p">[</span><span class="s2">&quot;longitude&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">resp</span><span class="p">[</span><span class="s2">&quot;iss_position&quot;</span><span class="p">][</span><span class="s2">&quot;longitude&quot;</span><span class="p">])</span>
+    <span class="k">return</span><span class="p">(</span><span class="n">dpos</span><span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">getspeed</span><span class="p">(</span><span class="n">dloc1</span><span class="p">,</span> <span class="n">dloc2</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Compute speed of ISS relative to Earth&#39;s surface using a pair of coordinates </span>
+<span class="sd">    retrieved via `getiss`. </span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    dloc1: dict</span>
+<span class="sd">        Dictionary with keys &quot;latitude&quot;, &quot;longitude&quot; &quot;timestamp&quot;</span>
+<span class="sd">        associated with the first positional snapshot.</span>
+<span class="sd">    dloc2: dict</span>
+<span class="sd">        Dictionary with keys &quot;latitude&quot;, &quot;longitude&quot; &quot;timestamp&quot;</span>
+<span class="sd">        associated with the second positional snapshot.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    float</span>
+<span class="sd">        Scalar value representing the average speed in km/s of the</span>
+<span class="sd">        International Space Station relative to the Earth in translation </span>
+<span class="sd">        from `dloc1` to `dloc2`. </span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># Convert unix epochs to timestamp datetime objects.</span>
+    <span class="n">ts1</span>  <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">fromtimestamp</span><span class="p">(</span><span class="n">dloc1</span><span class="p">[</span><span class="s1">&#39;timestamp&#39;</span><span class="p">])</span>
+    <span class="n">ts2</span>  <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">fromtimestamp</span><span class="p">(</span><span class="n">dloc2</span><span class="p">[</span><span class="s1">&#39;timestamp&#39;</span><span class="p">])</span>
+    <span class="n">secs</span> <span class="o">=</span> <span class="nb">abs</span><span class="p">((</span><span class="n">ts2</span><span class="o">-</span><span class="n">ts1</span><span class="p">)</span><span class="o">.</span><span class="n">total_seconds</span><span class="p">())</span>
+    <span class="n">loc1</span> <span class="o">=</span> <span class="p">(</span><span class="n">dloc1</span><span class="p">[</span><span class="s2">&quot;latitude&quot;</span><span class="p">],</span> <span class="n">dloc1</span><span class="p">[</span><span class="s2">&quot;longitude&quot;</span><span class="p">])</span>
+    <span class="n">loc2</span> <span class="o">=</span> <span class="p">(</span><span class="n">dloc2</span><span class="p">[</span><span class="s2">&quot;latitude&quot;</span><span class="p">],</span> <span class="n">dloc2</span><span class="p">[</span><span class="s2">&quot;longitude&quot;</span><span class="p">])</span>
+    <span class="n">dist</span> <span class="o">=</span> <span class="n">haverdist</span><span class="p">(</span><span class="n">loc1</span><span class="p">,</span> <span class="n">loc2</span><span class="p">)</span>
+    <span class="k">return</span><span class="p">((</span><span class="n">dist</span> <span class="o">/</span> <span class="n">secs</span><span class="p">)</span> <span class="o">*</span> <span class="mi">3600</span><span class="p">)</span>
+</code></pre></div>
+
+<p>In this case, the first option seems like a good choice. But instead of a simple function like <code>getspeed</code>, imagine a different function 
+(we&#8217;ll call it <code>legacyfunc</code>) that we didn&#8217;t author, which has been in production for a very long time, which has lots of unfamiliar
+optional parameters and many more lines of code than <code>getspeed</code>, is responsible for returning the value, and this value is the one 
+requiring a change of units. In this case, leaving <code>legacyfunc</code> unmodified and wrapping it&#8217;s result with logic to handle the change of 
+units would be&nbsp;preferable.</p>
+<p>We&#8217;ll implement a function to handle the change of units conversion. This will result in a parameterized decorator, the parameter 
+indicating which units the final result should be converted to. For this example, the only options will be kilometers per hour or miles 
+per hour, but the decorator can be extended to facilitate any number of additional distance or time&nbsp;conversions.</p>
+<div class="highlight"><pre><span></span><code><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">Demonstration of parameterized decorator to facilitate change of units conversion.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="kn">import</span> <span class="nn">functools</span>
+
+<span class="k">def</span> <span class="nf">units</span><span class="p">(</span><span class="n">spec</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Specify the units to represent orbital speed. `spec` can be either &quot;kmph&quot; </span>
+<span class="sd">    (kilometer per hour) or &quot;mph&quot; (miles per hour). Defaults to &quot;kmph&quot;.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="nf">decorator</span><span class="p">(</span><span class="n">function</span><span class="p">):</span>
+        <span class="nd">@functools</span><span class="o">.</span><span class="n">wraps</span><span class="p">(</span><span class="n">function</span><span class="p">)</span>
+        <span class="k">def</span> <span class="nf">wrapper</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+            <span class="n">result_init</span> <span class="o">=</span> <span class="n">function</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+            <span class="c1"># result_init is result returned by original function.</span>
+            <span class="k">if</span> <span class="n">spec</span><span class="o">==</span><span class="s2">&quot;mph&quot;</span><span class="p">:</span>
+                <span class="n">result</span> <span class="o">=</span> <span class="n">result_init</span> <span class="o">*</span> <span class="mf">0.62137119</span> 
+            <span class="k">else</span><span class="p">:</span> 
+                <span class="n">result</span> <span class="o">=</span> <span class="n">result_init</span>
+            <span class="k">return</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>
+        <span class="k">return</span><span class="p">(</span><span class="n">wrapper</span><span class="p">)</span>
+    <span class="k">return</span><span class="p">(</span><span class="n">decorator</span><span class="p">)</span>
+</code></pre></div>
+
+<p>Next, we modify <code>getspeed</code> by referencing the <code>units</code> decorator as&nbsp;follows:</p>
+<div class="highlight"><pre><span></span><code><span class="kn">import</span> <span class="nn">functools</span>
+
+
+<span class="nd">@units</span><span class="p">(</span><span class="s2">&quot;mph&quot;</span><span class="p">)</span>
+<span class="k">def</span> <span class="nf">getspeed</span><span class="p">(</span><span class="n">dloc1</span><span class="p">,</span> <span class="n">dloc2</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Compute speed of ISS relative to Earth&#39;s surface using</span>
+<span class="sd">    a pair of coordinates retrieved from `getiss`. </span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    dloc1: dict</span>
+<span class="sd">        Dictionary with keys &quot;latitude&quot;, &quot;longitude&quot; &quot;timestamp&quot;</span>
+<span class="sd">        associated with the first positional snapshot.</span>
+<span class="sd">    dloc2: dict</span>
+<span class="sd">        Dictionary with keys &quot;latitude&quot;, &quot;longitude&quot; &quot;timestamp&quot;</span>
+<span class="sd">        associated with the second positional snapshot.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    float</span>
+<span class="sd">        Scalar value representing the average speed of the International</span>
+<span class="sd">        Space Station relative to the Earth going from ``dloc1`` to </span>
+<span class="sd">        ``dloc2``. </span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># Convert unix epochs to timestamp datetime objects.</span>
+    <span class="n">ts1</span>   <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">fromtimestamp</span><span class="p">(</span><span class="n">dloc1</span><span class="p">[</span><span class="s1">&#39;timestamp&#39;</span><span class="p">])</span>
+    <span class="n">ts2</span>   <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">fromtimestamp</span><span class="p">(</span><span class="n">dloc2</span><span class="p">[</span><span class="s1">&#39;timestamp&#39;</span><span class="p">])</span>
+    <span class="n">secs</span>  <span class="o">=</span> <span class="nb">abs</span><span class="p">((</span><span class="n">ts2</span><span class="o">-</span><span class="n">ts1</span><span class="p">)</span><span class="o">.</span><span class="n">total_seconds</span><span class="p">())</span>
+    <span class="n">loc1</span>  <span class="o">=</span> <span class="p">(</span><span class="n">dloc1</span><span class="p">[</span><span class="s2">&quot;latitude&quot;</span><span class="p">],</span> <span class="n">dloc1</span><span class="p">[</span><span class="s2">&quot;longitude&quot;</span><span class="p">])</span>
+    <span class="n">loc2</span>  <span class="o">=</span> <span class="p">(</span><span class="n">dloc2</span><span class="p">[</span><span class="s2">&quot;latitude&quot;</span><span class="p">],</span> <span class="n">dloc2</span><span class="p">[</span><span class="s2">&quot;longitude&quot;</span><span class="p">])</span>
+    <span class="n">dist</span>  <span class="o">=</span> <span class="n">haverdist</span><span class="p">(</span><span class="n">geoloc1</span><span class="o">=</span><span class="n">loc1</span><span class="p">,</span> <span class="n">geoloc2</span><span class="o">=</span><span class="n">loc2</span><span class="p">)</span>
+    <span class="n">vinit</span> <span class="o">=</span> <span class="p">(</span><span class="n">dist</span> <span class="o">/</span> <span class="n">secs</span><span class="p">)</span> <span class="c1"># kilometers per second</span>
+    <span class="k">return</span><span class="p">(</span><span class="n">vinit</span> <span class="o">*</span> <span class="mi">3600</span><span class="p">)</span>
+</code></pre></div>
+
+<p>With this change, the scalar representing kilometers per hour returned by <code>getspeed</code> will be converted to miles per hour. Calling this 
+can be confirmed by calling <code>getspeed</code>.</p>
+<div class="highlight"><pre><span></span><code><span class="n">In</span> <span class="p">[</span><span class="mi">2</span><span class="p">]:</span> <span class="n">dpos1</span> <span class="o">=</span> <span class="n">getiss</span><span class="p">();</span> <span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mi">5</span><span class="p">);</span> <span class="n">dpos2</span> <span class="o">=</span> <span class="n">getiss</span><span class="p">()</span>
+<span class="n">In</span> <span class="p">[</span><span class="mi">3</span><span class="p">]:</span> <span class="n">getspeed</span><span class="p">(</span><span class="n">dpos1</span><span class="p">,</span> <span class="n">dpos2</span><span class="p">)</span>
+<span class="n">Out</span><span class="p">[</span><span class="mi">2</span><span class="p">]:</span> <span class="mf">16126.21</span>
+</code></pre></div>
+
+<p>A speed of 16126mph equates to ~26,000km/h, right around what we&#8217;d expected (Wikipedia puts the <span class="caps">ISS</span> average orbital velocity at&nbsp;~27,000km/h).</p>
+            </div>
+            <!-- /.entry-content -->
+        </article>
+    </section>
+
+        </div>
+        <div class="col-sm-3" id="sidebar">
+            <aside>
+<div id="aboutme">
+        <p>
+            <img width="100%" class="img-thumbnail" src="./images/JDTGOOG.JPG"/>
+        </p>
+    <p>
+      <strong>About James D. Triveri</strong><br/>
+        Data Scientist interested in ML/DL, automation and scientific computing.
+    </p>
+</div><!-- Sidebar -->
+<section class="well well-sm">
+  <ul class="list-group list-group-flush">
+
+<!-- Sidebar/Links -->
+<li class="list-group-item">
+  <h4><i class="fa fa-external-link-square fa-lg"></i><span class="icon-label">Links</span></h4>
+  <ul class="list-group" id="links">
+    <li class="list-group-item">
+      <a href="http://python.org/" target="_blank">Python.org</a>
+    </li>
+    <li class="list-group-item">
+      <a href="https://docs.python.org/3/py-modindex.html" target="_blank">The Python Module Index</a>
+    </li>
+    <li class="list-group-item">
+      <a href="https://scikit-learn.org/stable/documentation.html" target="_blank">Scikit-Learn</a>
+    </li>
+    <li class="list-group-item">
+      <a href="https://www.scipy.org/docs.html" target="_blank">Scipy Docs</a>
+    </li>
+    <li class="list-group-item">
+      <a href="https://openai.com/" target="_blank">OpenAI</a>
+    </li>
+  </ul>
+</li>
+<!-- End Sidebar/Links -->
+
+<!-- Sidebar/Images -->
+<li class="list-group-item">
+  <ul class="list-group" id="links">
+    <img width="100%" class="img-thumbnail" src="images/Sidebar/sidebarA.jpg"/>
+    <img width="100%" class="img-thumbnail" src="images/Sidebar/sidebarB.png"/>
+    <img width="100%" class="img-thumbnail" src="images/Sidebar/sidebarC.jpg"/>
+    <img width="100%" class="img-thumbnail" src="images/Sidebar/sidebarD.jpg"/>
+  </ul>
+</li>
+<!-- End Sidebar/Images -->
+  </ul>
+</section>
+<!-- End Sidebar -->            </aside>
+        </div>
+    </div>
+</div>
+<!-- End Content Container -->
+
+<footer>
+   <div class="container-fluid">
+      <hr>
+      <div class="row">
+         <div class="col-xs-10">&copy; 2023 James D. Triveri
+            &middot; Powered by <a href="https://github.com/getpelican/pelican-themes/tree/master/pelican-bootstrap3" target="_blank">pelican-bootstrap3</a>,
+            <a href="http://docs.getpelican.com/" target="_blank">Pelican</a>,
+            <a href="http://getbootstrap.com" target="_blank">Bootstrap</a>         </div>
+         <div class="col-xs-2"><p class="pull-right"><i class="fa fa-arrow-up"></i> <a href="#">Back to top</a></p></div>
+      </div>
+   </div>
+</footer>
+<script src="./theme/js/jquery.min.js"></script>
+
+<!-- Include all compiled plugins (below), or include individual files as needed -->
+<script src="./theme/js/bootstrap.min.js"></script>
+
+<!-- Enable responsive features in IE8 with Respond.js (https://github.com/scottjehl/Respond) -->
+<script src="./theme/js/respond.min.js"></script>
+
+
+    <script src="./theme/js/bodypadding.js"></script>
+
+
+</body>
+</html>

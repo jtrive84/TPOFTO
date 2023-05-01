@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="en" prefix="og: http://ogp.me/ns# fb: https://www.facebook.com/2008/fbml">
+<head>
+    <title>Performing Rolling Joins with data.table - The Pleasure of Finding Things Out</title>
+    <!-- Using the latest rendering mode for IE -->
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+
+
+<link rel="canonical" href="./performing-rolling-joins-with-datatable.html">
+
+        <meta name="author" content="James D. Triveri" />
+        <meta name="keywords" content="R" />
+        <meta name="description" content="Performing rolling joins with data.table" />
+
+        <meta property="og:site_name" content="The Pleasure of Finding Things Out" />
+        <meta property="og:type" content="article"/>
+        <meta property="og:title" content="Performing Rolling Joins with data.table"/>
+        <meta property="og:url" content="./performing-rolling-joins-with-datatable.html"/>
+        <meta property="og:description" content="Performing rolling joins with data.table"/>
+        <meta property="article:published_time" content="2023-04-23" />
+            <meta property="article:section" content="R" />
+            <meta property="article:tag" content="R" />
+            <meta property="article:author" content="James D. Triveri" />
+
+
+
+    <!-- Bootstrap -->
+        <link rel="stylesheet" href="./theme/css/bootstrap.Yeti.min.css" type="text/css"/>
+    <link href="./theme/css/font-awesome.min.css" rel="stylesheet">
+
+    <link href="./theme/css/pygments/default.css" rel="stylesheet">
+        <link href="./theme/css/typogrify.css" rel="stylesheet">
+    <link rel="stylesheet" href="./theme/css/style.css" type="text/css"/>
+        <link href="./static/css/custom.css" rel="stylesheet">
+
+
+
+
+</head>
+<body>
+
+<div class="navbar navbar-inverse navbar-fixed-top" role="navigation">
+    <div class="container-fluid">
+        <div class="navbar-header">
+            <button type="button" class="navbar-toggle" data-toggle="collapse" data-target=".navbar-ex1-collapse">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            <a href="./" class="navbar-brand">
+The Pleasure of Finding Things Out            </a>
+        </div>
+        <div class="collapse navbar-collapse navbar-ex1-collapse">
+            <ul class="nav navbar-nav">
+                         <li><a href="./pages/about-me.html">
+                             About&nbsp;Me
+                          </a></li>
+                        <li >
+                            <a href="./category/machine-learning.html">Machine learning</a>
+                        </li>
+                        <li >
+                            <a href="./category/python.html">Python</a>
+                        </li>
+                        <li class="active">
+                            <a href="./category/r.html">R</a>
+                        </li>
+                        <li >
+                            <a href="./category/statistical-modeling.html">Statistical modeling</a>
+                        </li>
+            </ul>
+            <ul class="nav navbar-nav navbar-right">
+            </ul>
+        </div>
+        <!-- /.navbar-collapse -->
+    </div>
+</div> <!-- /.navbar -->
+
+<!-- Banner -->
+<!-- End Banner -->
+
+<!-- Content Container -->
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-sm-9">
+    <section id="content">
+        <article>
+            <header class="page-header">
+                <h1>
+                    <a href="./performing-rolling-joins-with-datatable.html"
+                       rel="bookmark"
+                       title="Permalink to Performing Rolling Joins with data.table">
+                        Performing Rolling Joins with&nbsp;data.table
+                    </a>
+                </h1>
+            </header>
+            <div class="entry-content">
+                <div class="panel">
+                    <div class="panel-body">
+<footer class="post-info">
+    <span class="label label-default">Date</span>
+    <span class="published">
+        <i class="fa fa-calendar"></i><time datetime="2023-04-23T00:00:00-05:00"> 2023-04-23</time>
+    </span>
+
+
+
+
+
+<span class="label label-default">Tags</span>
+	<a href="./tag/r.html">R</a>
+    
+</footer><!-- /.post-info -->                    </div>
+                </div>
+                <h3>Prerequisites</h3>
+<p>If you don&#8217;t have it already, install the data.table and microbenchmark libraries the conventional&nbsp;way: </p>
+<div class="highlight"><pre><span></span><code><span class="o">&gt;</span><span class="w"> </span><span class="nf">install.packages</span><span class="p">(</span><span class="nf">c</span><span class="p">(</span><span class="s">&quot;data.table&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;microbenchmark&quot;</span><span class="p">))</span>
+</code></pre></div>
+
+<p>A rolling join refers to a situation in which two or more tables need to be associated, but there isn&#8217;t a direct 
+correspondence of values in each table&#8217;s key column(s). For example, assume we have a table that represents thresholds 
+in which to group claims based on loss&nbsp;amount:</p>
+<div class="highlight"><pre><span></span><code>library(&quot;data.table&quot;)
+
+DF1 = data.table(
+    group=c(&quot;A&quot;, &quot;B&quot;, &quot;C&quot;, &quot;D&quot;, &quot;E&quot;),
+    loss=c(0, 10000, 20000, 30000, 40000),
+    stringsAsFactors=FALSE
+    )
+</code></pre></div>
+
+<p>Reviewing the contents of <span class="caps">DF1</span>:</p>
+<div class="highlight"><pre><span></span><code>   group      loss
+1:     A         0
+2:     B     10000
+3:     C     20000
+4:     D     30000
+5:     E     40000
+</code></pre></div>
+
+<p>Let&#8217;s also assume we have a table of claims, <span class="caps">DF2</span>:</p>
+<div class="highlight"><pre><span></span><code>DF2 = data.table(
+    claimno=paste0(&quot;000&quot;, 10:20),
+    loss=c(8101, 15700, 64140, 20000, 11655, 31850, 23680, 41440, 16161, 77000, 4564),
+    stringsAsFactors=FALSE
+    )
+</code></pre></div>
+
+<p>Reviewing the contents of <span class="caps">DF2</span>:</p>
+<div class="highlight"><pre><span></span><code>    claimno  loss
+ 1:   00010  8101
+ 2:   00011 15700
+ 3:   00012 64140
+ 4:   00013 20000
+ 5:   00014 11655
+ 6:   00015 31850
+ 7:   00016 23680
+ 8:   00017 41440
+ 9:   00018 16161
+10:   00019 77009
+11:   00020  4564
+</code></pre></div>
+
+<p>The goal is for each claimno in <span class="caps">DF2</span>, assign the corresponding group from <code>DF1</code> such that loss threshold (from <code>DF1</code>) is the 
+maximum value less than or equal to loss from <span class="caps">DF2</span>. For example, a loss amount of 15700 should be assigned to group B, 
+since 10000 is the maximum loss threshold less than or equal to&nbsp;15700. </p>
+<p>The way many people first attack this problem is to use a deeply nested sequence of <code>ifelse</code> statements. Something akin&nbsp;to:</p>
+<div class="highlight"><pre><span></span><code><span class="nv">DF2</span><span class="p">[,</span>
+<span class="w">    </span><span class="nv">group</span><span class="o">:=</span>
+<span class="w">        </span><span class="k">ifelse</span><span class="p">(</span><span class="nv">loss</span><span class="o">&gt;=</span><span class="mi">0</span><span class="w"> </span>&amp;<span class="w"> </span><span class="nv">loss</span><span class="o">&lt;</span><span class="mi">10000</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;A&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="k">ifelse</span><span class="p">(</span><span class="nv">loss</span><span class="o">&gt;=</span><span class="mi">10000</span><span class="w"> </span>&amp;<span class="w"> </span><span class="nv">loss</span><span class="o">&lt;</span><span class="mi">20000</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;B&quot;</span><span class="p">,</span>
+<span class="w">                </span><span class="k">ifelse</span><span class="p">(</span><span class="nv">loss</span><span class="o">&gt;=</span><span class="mi">20000</span><span class="w"> </span>&amp;<span class="w"> </span><span class="nv">loss</span><span class="o">&lt;</span><span class="mi">30000</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;C&quot;</span><span class="p">,</span>
+<span class="w">                    </span><span class="k">ifelse</span><span class="p">(</span><span class="nv">loss</span><span class="o">&gt;=</span><span class="mi">30000</span><span class="w"> </span>&amp;<span class="w"> </span><span class="nv">loss</span><span class="o">&lt;</span><span class="mi">40000</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;D&quot;</span><span class="p">,</span>
+<span class="w">                    </span><span class="s">&quot;E&quot;</span>
+<span class="w">                    </span><span class="p">)</span>
+<span class="w">                </span><span class="p">)</span>
+<span class="w">            </span><span class="p">)</span>
+<span class="w">        </span><span class="p">)</span><span class="w">   </span>
+<span class="w">    </span><span class="p">]</span>
+</code></pre></div>
+
+<p>Which results&nbsp;in:</p>
+<div class="highlight"><pre><span></span><code>    claimno  loss group
+ 1:   00010  8101     A
+ 2:   00011 15700     B
+ 3:   00012 64140     E
+ 4:   00013 20000     C
+ 5:   00014 11655     B
+ 6:   00015 31850     D
+ 7:   00016 23680     C
+ 8:   00017 41440     E
+ 9:   00018 16161     B
+10:   00019 77000     E
+11:   00020  4564     A
+</code></pre></div>
+
+<p>This solution works, but is not optimal for a number of reasons. First, it&#8217;s overly verbose and brittle. If the number of 
+groups changes from 5 to 10 or 15, it becomes necessary to extend the nesting of ifelses by the number of new groups. 
+One should always try to avoid writing code that requires updates in proportion to the size of the input. Perhaps more 
+importantly, this approach has poor runtime performance, which we demonstrate later&nbsp;on.</p>
+<h3>Rolling&nbsp;Joins</h3>
+<p>Performing a rolling join in data.table is straighforward. Simply add the <code>roll</code> modifier within the join expression, 
+specifying either <code>+Inf</code> (or <code>TRUE</code>) or <code>-Inf</code> to specify the direction in which to roll. Sticking with the same <span class="caps">DF1</span> and 
+<span class="caps">DF2</span> from before, we create a new table <span class="caps">DF</span>, which represents <span class="caps">DF2</span> along with the target group associated with each&nbsp;claimno:</p>
+<div class="highlight"><pre><span></span><code>DF = DF1[DF2, on=&quot;loss&quot;, roll=+Inf]
+</code></pre></div>
+
+<p>Resulting&nbsp;in:</p>
+<div class="highlight"><pre><span></span><code>    group  loss claimno
+ 1:     A  8101   00010
+ 2:     B 15700   00011
+ 3:     E 64140   00012
+ 4:     C 20000   00013
+ 5:     B 11655   00014
+ 6:     D 31850   00015
+ 7:     C 23680   00016
+ 8:     E 41440   00017
+ 9:     B 16161   00018
+10:     E 77000   00019
+11:     A  4564   00020
+</code></pre></div>
+
+<p>Note that in this example, the key column loss is the same in both tables. If this was not the case, say, threshold
+in <span class="caps">DF1</span> vs. loss in <span class="caps">DF2</span>, one would specify  <code>on=c("threshold"="loss")</code>.</p>
+<p>For completeness, let&#8217;s see what happens if switch to <code>roll=-Inf</code> (assume we changed loss to threshold in <span class="caps">DF1</span>):</p>
+<div class="highlight"><pre><span></span><code>DF = DF1[DF2, on=c(&quot;threshold&quot;=&quot;loss&quot;), roll=-Inf]
+</code></pre></div>
+
+<p>Resulting&nbsp;in:</p>
+<div class="highlight"><pre><span></span><code>   group threshold claimno
+ 1:     B      8101   00010
+ 2:     C     15700   00011
+ 3:  &lt;NA&gt;     64140   00012
+ 4:     C     20000   00013
+ 5:     C     11655   00014
+ 6:     E     31850   00015
+ 7:     D     23680   00016
+ 8:  &lt;NA&gt;     41440   00017
+ 9:     C     16161   00018
+10:  &lt;NA&gt;     77000   00019
+11:     B      4564   00020
+</code></pre></div>
+
+<p>Any value in excess of the largest threshold gets set to <code>NA</code>, and all other claims get set to the minimum threshold 
+from <span class="caps">DF1</span> greater than or equal to loss in <span class="caps">DF1</span>.</p>
+<h3>Performance&nbsp;Comparison</h3>
+<p>To demonstrate to difference in performance, we generate a new <span class="caps">DF2</span> with one million random claim amounts. We&#8217;ll then 
+compare the performance between the naive initial implementation and the rolling join implementation. To make it easier to 
+use with the microbenchmark profiling tool, each implementation is encapsulated within separate&nbsp;functions:</p>
+<div class="highlight"><pre><span></span><code><span class="nf">library</span><span class="p">(</span><span class="s">&quot;data.table&quot;</span><span class="p">)</span>
+<span class="nf">library</span><span class="p">(</span><span class="s">&quot;microbenchmark&quot;</span><span class="p">)</span>
+
+<span class="n">DF1</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">data.table</span><span class="p">(</span>
+<span class="w">    </span><span class="n">group</span><span class="o">=</span><span class="nf">c</span><span class="p">(</span><span class="s">&quot;A&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;B&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;C&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;D&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;E&quot;</span><span class="p">),</span>
+<span class="w">    </span><span class="n">loss</span><span class="o">=</span><span class="nf">c</span><span class="p">(</span><span class="m">0</span><span class="p">,</span><span class="w"> </span><span class="m">10000</span><span class="p">,</span><span class="w"> </span><span class="m">20000</span><span class="p">,</span><span class="w"> </span><span class="m">30000</span><span class="p">,</span><span class="w"> </span><span class="m">40000</span><span class="p">),</span>
+<span class="w">    </span><span class="n">stringsAsFactors</span><span class="o">=</span><span class="kc">FALSE</span>
+<span class="w">    </span><span class="p">)</span>
+
+<span class="n">DF2</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">data.table</span><span class="p">(</span>
+<span class="w">    </span><span class="n">claimno</span><span class="o">=</span><span class="nf">formatC</span><span class="p">(</span><span class="m">1</span><span class="o">:</span><span class="m">1000000</span><span class="p">,</span><span class="w"> </span><span class="n">format</span><span class="o">=</span><span class="s">&quot;d&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">width</span><span class="o">=</span><span class="m">7</span><span class="p">,</span><span class="w"> </span><span class="n">flag</span><span class="o">=</span><span class="m">0</span><span class="p">),</span>
+<span class="w">    </span><span class="n">loss</span><span class="o">=</span><span class="nf">rgamma</span><span class="p">(</span><span class="n">n</span><span class="o">=</span><span class="m">1000000</span><span class="p">,</span><span class="w"> </span><span class="n">shape</span><span class="o">=</span><span class="m">1</span><span class="p">,</span><span class="w"> </span><span class="n">scale</span><span class="o">=</span><span class="m">25000</span><span class="p">),</span>
+<span class="w">    </span><span class="n">stringsAsFactors</span><span class="o">=</span><span class="kc">FALSE</span>
+<span class="w">    </span><span class="p">)</span>
+
+<span class="c1"># Create copies to operate on for each implementation. </span>
+<span class="n">method1DF</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">data.table</span><span class="o">::</span><span class="nf">copy</span><span class="p">(</span><span class="n">DF2</span><span class="p">)</span>
+<span class="n">method2DF</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">data.table</span><span class="o">::</span><span class="nf">copy</span><span class="p">(</span><span class="n">DF2</span><span class="p">)</span>
+
+
+<span class="n">fmethod1</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">function</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="c1"># First method. </span>
+<span class="w">    </span><span class="n">method1DF</span><span class="p">[,</span>
+<span class="w">        </span><span class="n">group</span><span class="o">:=</span>
+<span class="w">            </span><span class="nf">ifelse</span><span class="p">(</span><span class="n">loss</span><span class="o">&gt;=</span><span class="m">0</span><span class="w"> </span><span class="o">&amp;</span><span class="w"> </span><span class="n">loss</span><span class="o">&lt;</span><span class="m">10000</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;A&quot;</span><span class="p">,</span>
+<span class="w">                </span><span class="nf">ifelse</span><span class="p">(</span><span class="n">loss</span><span class="o">&gt;=</span><span class="m">10000</span><span class="w"> </span><span class="o">&amp;</span><span class="w"> </span><span class="n">loss</span><span class="o">&lt;</span><span class="m">20000</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;B&quot;</span><span class="p">,</span>
+<span class="w">                    </span><span class="nf">ifelse</span><span class="p">(</span><span class="n">loss</span><span class="o">&gt;=</span><span class="m">20000</span><span class="w"> </span><span class="o">&amp;</span><span class="w"> </span><span class="n">loss</span><span class="o">&lt;</span><span class="m">30000</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;C&quot;</span><span class="p">,</span>
+<span class="w">                        </span><span class="nf">ifelse</span><span class="p">(</span><span class="n">loss</span><span class="o">&gt;=</span><span class="m">30000</span><span class="w"> </span><span class="o">&amp;</span><span class="w"> </span><span class="n">loss</span><span class="o">&lt;</span><span class="m">40000</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;D&quot;</span><span class="p">,</span>
+<span class="w">                        </span><span class="s">&quot;E&quot;</span>
+<span class="w">                        </span><span class="p">)</span>
+<span class="w">                    </span><span class="p">)</span>
+<span class="w">                </span><span class="p">)</span>
+<span class="w">            </span><span class="p">)</span><span class="w">   </span>
+<span class="w">        </span><span class="p">]</span>
+<span class="p">}</span>
+
+
+<span class="n">fmethod2</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">function</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="c1"># Second method.</span>
+<span class="w">    </span><span class="n">DF</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">DF1</span><span class="p">[</span><span class="n">method2DF</span><span class="p">,</span><span class="w"> </span><span class="n">on</span><span class="o">=</span><span class="nf">c</span><span class="p">(</span><span class="s">&quot;loss&quot;</span><span class="p">),</span><span class="w"> </span><span class="n">roll</span><span class="o">=+</span><span class="kc">Inf</span><span class="p">]</span>
+<span class="p">}</span>
+
+<span class="c1"># Run comparison 10 times, compare max result from each. </span>
+<span class="nf">microbenchmark</span><span class="p">(</span>
+<span class="w">    </span><span class="nf">fmethod1</span><span class="p">(),</span><span class="w"> </span>
+<span class="w">    </span><span class="nf">fmethod2</span><span class="p">(),</span><span class="w"> </span>
+<span class="w">    </span><span class="n">times</span><span class="o">=</span><span class="m">10</span>
+<span class="w">    </span><span class="p">)</span>
+</code></pre></div>
+
+<p>The results from microbenchmark are provided&nbsp;below:</p>
+<div class="highlight"><pre><span></span><code><span class="n">Unit</span><span class="o">:</span><span class="w"> </span><span class="n">milliseconds</span>
+<span class="w">       </span><span class="n">expr</span><span class="w">       </span><span class="n">min</span><span class="w">        </span><span class="n">lq</span><span class="w">      </span><span class="n">mean</span><span class="w">    </span><span class="n">median</span><span class="w">        </span><span class="n">uq</span><span class="w">       </span><span class="n">max</span><span class="w"> </span><span class="n">neval</span>
+<span class="w"> </span><span class="n">fmethod1</span><span class="o">()</span><span class="w"> </span><span class="mf">2116.3529</span><span class="w"> </span><span class="mf">2212.5053</span><span class="w"> </span><span class="mf">2518.0355</span><span class="w"> </span><span class="mf">2558.7205</span><span class="w"> </span><span class="mf">2779.6253</span><span class="w"> </span><span class="mf">3061.8588</span><span class="w">    </span><span class="mi">10</span>
+<span class="w"> </span><span class="n">fmethod2</span><span class="o">()</span><span class="w">  </span><span class="mf">494.8094</span><span class="w">  </span><span class="mf">536.9963</span><span class="w">  </span><span class="mf">622.7095</span><span class="w">  </span><span class="mf">586.1551</span><span class="w">  </span><span class="mf">677.1586</span><span class="w">  </span><span class="mf">825.6939</span><span class="w">    </span><span class="mi">10</span>
+</code></pre></div>
+
+<p>In the worst case, the rolling join approach is almost 4 times faster, and as the number of records increases, so does the 
+relative performance improvement between the two&nbsp;methods. </p>
+            </div>
+            <!-- /.entry-content -->
+        </article>
+    </section>
+
+        </div>
+        <div class="col-sm-3" id="sidebar">
+            <aside>
+<div id="aboutme">
+        <p>
+            <img width="100%" class="img-thumbnail" src="./images/JDTGOOG.JPG"/>
+        </p>
+    <p>
+      <strong>About James D. Triveri</strong><br/>
+        Data Scientist interested in ML/DL, automation and scientific computing.
+    </p>
+</div><!-- Sidebar -->
+<section class="well well-sm">
+  <ul class="list-group list-group-flush">
+
+<!-- Sidebar/Links -->
+<li class="list-group-item">
+  <h4><i class="fa fa-external-link-square fa-lg"></i><span class="icon-label">Links</span></h4>
+  <ul class="list-group" id="links">
+    <li class="list-group-item">
+      <a href="http://python.org/" target="_blank">Python.org</a>
+    </li>
+    <li class="list-group-item">
+      <a href="https://docs.python.org/3/py-modindex.html" target="_blank">The Python Module Index</a>
+    </li>
+    <li class="list-group-item">
+      <a href="https://scikit-learn.org/stable/documentation.html" target="_blank">Scikit-Learn</a>
+    </li>
+    <li class="list-group-item">
+      <a href="https://www.scipy.org/docs.html" target="_blank">Scipy Docs</a>
+    </li>
+    <li class="list-group-item">
+      <a href="https://openai.com/" target="_blank">OpenAI</a>
+    </li>
+  </ul>
+</li>
+<!-- End Sidebar/Links -->
+
+<!-- Sidebar/Images -->
+<li class="list-group-item">
+  <ul class="list-group" id="links">
+    <img width="100%" class="img-thumbnail" src="images/Sidebar/sidebarA.jpg"/>
+    <img width="100%" class="img-thumbnail" src="images/Sidebar/sidebarB.png"/>
+    <img width="100%" class="img-thumbnail" src="images/Sidebar/sidebarC.jpg"/>
+    <img width="100%" class="img-thumbnail" src="images/Sidebar/sidebarD.jpg"/>
+  </ul>
+</li>
+<!-- End Sidebar/Images -->
+  </ul>
+</section>
+<!-- End Sidebar -->            </aside>
+        </div>
+    </div>
+</div>
+<!-- End Content Container -->
+
+<footer>
+   <div class="container-fluid">
+      <hr>
+      <div class="row">
+         <div class="col-xs-10">&copy; 2023 James D. Triveri
+            &middot; Powered by <a href="https://github.com/getpelican/pelican-themes/tree/master/pelican-bootstrap3" target="_blank">pelican-bootstrap3</a>,
+            <a href="http://docs.getpelican.com/" target="_blank">Pelican</a>,
+            <a href="http://getbootstrap.com" target="_blank">Bootstrap</a>         </div>
+         <div class="col-xs-2"><p class="pull-right"><i class="fa fa-arrow-up"></i> <a href="#">Back to top</a></p></div>
+      </div>
+   </div>
+</footer>
+<script src="./theme/js/jquery.min.js"></script>
+
+<!-- Include all compiled plugins (below), or include individual files as needed -->
+<script src="./theme/js/bootstrap.min.js"></script>
+
+<!-- Enable responsive features in IE8 with Respond.js (https://github.com/scottjehl/Respond) -->
+<script src="./theme/js/respond.min.js"></script>
+
+
+    <script src="./theme/js/bodypadding.js"></script>
+
+
+</body>
+</html>

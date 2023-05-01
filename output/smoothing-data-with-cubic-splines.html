@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="en" prefix="og: http://ogp.me/ns# fb: https://www.facebook.com/2008/fbml">
+<head>
+    <title>Smoothing Data with Cubic Splines - The Pleasure of Finding Things Out</title>
+    <!-- Using the latest rendering mode for IE -->
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+
+
+<link rel="canonical" href="./smoothing-data-with-cubic-splines.html">
+
+        <meta name="author" content="James D. Triveri" />
+        <meta name="keywords" content="Statistical Modeling,R" />
+        <meta name="description" content="Smoothing data with cubic spline approaches" />
+
+        <meta property="og:site_name" content="The Pleasure of Finding Things Out" />
+        <meta property="og:type" content="article"/>
+        <meta property="og:title" content="Smoothing Data with Cubic Splines"/>
+        <meta property="og:url" content="./smoothing-data-with-cubic-splines.html"/>
+        <meta property="og:description" content="Smoothing data with cubic spline approaches"/>
+        <meta property="article:published_time" content="2023-04-23" />
+            <meta property="article:section" content="Statistical Modeling" />
+            <meta property="article:tag" content="Statistical Modeling" />
+            <meta property="article:tag" content="R" />
+            <meta property="article:author" content="James D. Triveri" />
+
+
+
+    <!-- Bootstrap -->
+        <link rel="stylesheet" href="./theme/css/bootstrap.Yeti.min.css" type="text/css"/>
+    <link href="./theme/css/font-awesome.min.css" rel="stylesheet">
+
+    <link href="./theme/css/pygments/default.css" rel="stylesheet">
+        <link href="./theme/css/typogrify.css" rel="stylesheet">
+    <link rel="stylesheet" href="./theme/css/style.css" type="text/css"/>
+        <link href="./static/css/custom.css" rel="stylesheet">
+
+
+
+
+</head>
+<body>
+
+<div class="navbar navbar-inverse navbar-fixed-top" role="navigation">
+    <div class="container-fluid">
+        <div class="navbar-header">
+            <button type="button" class="navbar-toggle" data-toggle="collapse" data-target=".navbar-ex1-collapse">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            <a href="./" class="navbar-brand">
+The Pleasure of Finding Things Out            </a>
+        </div>
+        <div class="collapse navbar-collapse navbar-ex1-collapse">
+            <ul class="nav navbar-nav">
+                         <li><a href="./pages/about-me.html">
+                             About&nbsp;Me
+                          </a></li>
+                        <li >
+                            <a href="./category/machine-learning.html">Machine learning</a>
+                        </li>
+                        <li >
+                            <a href="./category/python.html">Python</a>
+                        </li>
+                        <li >
+                            <a href="./category/r.html">R</a>
+                        </li>
+                        <li class="active">
+                            <a href="./category/statistical-modeling.html">Statistical modeling</a>
+                        </li>
+            </ul>
+            <ul class="nav navbar-nav navbar-right">
+            </ul>
+        </div>
+        <!-- /.navbar-collapse -->
+    </div>
+</div> <!-- /.navbar -->
+
+<!-- Banner -->
+<!-- End Banner -->
+
+<!-- Content Container -->
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-sm-9">
+    <section id="content">
+        <article>
+            <header class="page-header">
+                <h1>
+                    <a href="./smoothing-data-with-cubic-splines.html"
+                       rel="bookmark"
+                       title="Permalink to Smoothing Data with Cubic Splines">
+                        Smoothing Data with Cubic&nbsp;Splines
+                    </a>
+                </h1>
+            </header>
+            <div class="entry-content">
+                <div class="panel">
+                    <div class="panel-body">
+<footer class="post-info">
+    <span class="label label-default">Date</span>
+    <span class="published">
+        <i class="fa fa-calendar"></i><time datetime="2023-04-23T00:00:00-05:00"> 2023-04-23</time>
+    </span>
+
+
+
+
+
+<span class="label label-default">Tags</span>
+	<a href="./tag/statistical-modeling.html">Statistical Modeling</a>
+        /
+	<a href="./tag/r.html">R</a>
+    
+</footer><!-- /.post-info -->                    </div>
+                </div>
+                <p>In this article, three approaches to smooth empirical data will be&nbsp;demonstrated:</p>
+<p>1) standard polynomial regression
+2) cubic B-spline regression
+3) smoothing&nbsp;splines </p>
+<p>The data will  a set of loss development factors (LDFs) associated with an unidentified line of business. 
+Instead of smoothing LDFs patterns directly, we first compute the cumulative loss development factors (CLDFs), 
+then take the reciprocal to obtain Percent of Ultimate factors. Doing so will generally (not always) result 
+in a monotonically increasing factor as a function of time. The code that follows prepares our&nbsp;data:</p>
+<div class="highlight"><pre><span></span><code><span class="nf">library</span><span class="p">(</span><span class="s">&quot;data.table&quot;</span><span class="p">)</span>
+<span class="nf">library</span><span class="p">(</span><span class="s">&quot;ggplot2&quot;</span><span class="p">)</span>
+<span class="nf">options</span><span class="p">(</span><span class="n">scipen</span><span class="o">=</span><span class="m">9999</span><span class="p">)</span>
+
+<span class="n">ldfs</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">c</span><span class="p">(</span>
+<span class="w">    </span><span class="m">2.85637</span><span class="p">,</span><span class="w"> </span><span class="m">1.58402</span><span class="p">,</span><span class="w"> </span><span class="m">1.37531</span><span class="p">,</span><span class="w"> </span><span class="m">1.3001</span><span class="p">,</span><span class="w"> </span><span class="m">1.21469</span><span class="p">,</span><span class="w"> </span><span class="m">1.28128</span><span class="p">,</span><span class="w"> </span><span class="m">1.15415</span><span class="p">,</span><span class="w"> </span><span class="m">1.09783</span><span class="p">,</span><span class="w"> </span><span class="m">1.09302</span><span class="p">,</span><span class="w"> </span>
+<span class="w">    </span><span class="m">1.06395</span><span class="p">,</span><span class="w"> </span><span class="m">1.04992</span><span class="p">,</span><span class="w"> </span><span class="m">1.04659</span><span class="p">,</span><span class="w"> </span><span class="m">1.05164</span><span class="p">,</span><span class="w"> </span><span class="m">1.03117</span><span class="p">,</span><span class="w"> </span><span class="m">1.0236</span><span class="p">,</span><span class="w"> </span><span class="m">1.06338</span><span class="p">,</span><span class="w"> </span><span class="m">1.03234</span><span class="p">,</span><span class="w"> </span><span class="m">1.0172</span><span class="p">,</span><span class="w"> </span>
+<span class="w">    </span><span class="m">1.01795</span><span class="p">,</span><span class="w"> </span><span class="m">1.01813</span><span class="p">,</span><span class="w"> </span><span class="m">1.01413</span><span class="p">,</span><span class="w"> </span><span class="m">1.00863</span><span class="p">,</span><span class="w"> </span><span class="m">1.01346</span><span class="p">,</span><span class="w"> </span><span class="m">1.00372</span><span class="p">,</span><span class="w"> </span><span class="m">1.00423</span><span class="p">,</span><span class="w"> </span><span class="m">1.00683</span><span class="p">,</span><span class="w"> </span><span class="m">1.04633</span><span class="p">,</span><span class="w"> </span>
+<span class="w">    </span><span class="m">1.01796</span><span class="p">,</span><span class="w"> </span><span class="m">1.02279</span><span class="p">,</span><span class="w"> </span><span class="m">1.00629</span><span class="p">,</span><span class="w"> </span><span class="m">1.00205</span><span class="p">,</span><span class="w"> </span><span class="m">1.00316</span><span class="p">,</span><span class="w"> </span><span class="m">1.007</span><span class="p">,</span><span class="w"> </span><span class="m">1.02828</span><span class="p">,</span><span class="w"> </span><span class="m">1.00117</span><span class="p">,</span><span class="w"> </span><span class="m">1.00303</span><span class="p">,</span><span class="w"> </span>
+<span class="w">    </span><span class="m">1.00055</span><span class="p">,</span><span class="w"> </span><span class="m">1.02272</span><span class="p">,</span><span class="w"> </span><span class="m">1.00678</span><span class="p">,</span><span class="w"> </span><span class="m">1.00152</span><span class="p">,</span><span class="w"> </span><span class="m">1.00013</span><span class="p">,</span><span class="w"> </span><span class="m">1.01347</span><span class="p">,</span><span class="w"> </span><span class="m">1</span><span class="p">,</span><span class="w"> </span><span class="m">1.00071</span><span class="p">,</span><span class="w"> </span><span class="m">1.00136</span>
+<span class="w">    </span><span class="p">)</span>
+
+<span class="c1"># Compute cumulative development factors.</span>
+<span class="n">cldfs</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">rev</span><span class="p">(</span><span class="nf">cumprod</span><span class="p">(</span><span class="nf">rev</span><span class="p">(</span><span class="n">ldfs</span><span class="p">)))</span>
+
+<span class="c1"># Compute percent-of-ultimate factors. </span>
+<span class="n">pous</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="m">1</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="n">cldfs</span>
+
+<span class="n">DF</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">data.table</span><span class="p">(</span>
+<span class="w">    </span><span class="n">xinit</span><span class="o">=</span><span class="m">1</span><span class="o">:</span><span class="nf">length</span><span class="p">(</span><span class="n">pous</span><span class="p">),</span><span class="w"> </span><span class="n">ldf0</span><span class="o">=</span><span class="n">ldfs</span><span class="p">,</span><span class="w"> </span><span class="n">cldf0</span><span class="o">=</span><span class="n">cldfs</span><span class="p">,</span><span class="w"> </span><span class="n">y</span><span class="o">=</span><span class="n">pous</span><span class="p">,</span><span class="w"> </span>
+<span class="w">    </span><span class="n">stringsAsFactors</span><span class="o">=</span><span class="kc">FALSE</span>
+<span class="w">    </span><span class="p">)</span>
+
+<span class="c1"># Rescale `dev` to fall between 0-1.</span>
+<span class="n">DF</span><span class="p">[,</span><span class="n">x</span><span class="o">:=</span><span class="nf">seq</span><span class="p">(</span><span class="m">0</span><span class="p">,</span><span class="w"> </span><span class="m">1</span><span class="p">,</span><span class="w"> </span><span class="n">length.out</span><span class="o">=</span><span class="nf">nrow</span><span class="p">(</span><span class="n">DF</span><span class="p">))]</span>
+
+<span class="nf">setcolorder</span><span class="p">(</span>
+<span class="w">    </span><span class="n">DF</span><span class="p">,</span><span class="w"> </span><span class="nf">c</span><span class="p">(</span><span class="s">&quot;xinit&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;x&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;y&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;ldf0&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;cldf0&quot;</span><span class="p">)</span>
+<span class="w">    </span><span class="p">)</span>
+</code></pre></div>
+
+<p>Fields in <code>DF</code> are defined as&nbsp;follows:</p>
+<ul>
+<li><code>xinit</code>: Original development period. 1 &lt;= <code>xinit</code> &lt;=&nbsp;45.</li>
+<li><code>x</code>: <code>xinit</code> rescaled to&nbsp;[0,1].</li>
+<li><code>y</code>: Percent-of-ultimate&nbsp;factors.</li>
+<li><code>ldf0</code>: Original unsmoothed loss development&nbsp;factors.</li>
+<li><code>cldf0</code>: Original unsmoothed cumulative loss development&nbsp;factors. </li>
+</ul>
+<p>Inspecting our data&nbsp;yields:</p>
+<div class="highlight"><pre><span></span><code><span class="w">     </span><span class="n">xinit</span><span class="w">          </span><span class="n">x</span><span class="w">          </span><span class="n">y</span><span class="w">    </span><span class="n">ldf0</span><span class="w">     </span><span class="n">cldf0</span>
+<span class="w"> </span><span class="m">1</span><span class="o">:</span><span class="w">      </span><span class="m">1</span><span class="w"> </span><span class="m">0.00000000</span><span class="w"> </span><span class="m">0.03022475</span><span class="w"> </span><span class="m">2.85637</span><span class="w"> </span><span class="m">33.085464</span>
+<span class="w"> </span><span class="m">2</span><span class="o">:</span><span class="w">      </span><span class="m">2</span><span class="w"> </span><span class="m">0.02272727</span><span class="w"> </span><span class="m">0.08633308</span><span class="w"> </span><span class="m">1.58402</span><span class="w"> </span><span class="m">11.583045</span>
+<span class="w"> </span><span class="m">3</span><span class="o">:</span><span class="w">      </span><span class="m">3</span><span class="w"> </span><span class="m">0.04545455</span><span class="w"> </span><span class="m">0.13675333</span><span class="w"> </span><span class="m">1.37531</span><span class="w">  </span><span class="m">7.312436</span>
+<span class="w"> </span><span class="m">4</span><span class="o">:</span><span class="w">      </span><span class="m">4</span><span class="w"> </span><span class="m">0.06818182</span><span class="w"> </span><span class="m">0.18807822</span><span class="w"> </span><span class="m">1.30010</span><span class="w">  </span><span class="m">5.316937</span>
+<span class="w"> </span><span class="m">5</span><span class="o">:</span><span class="w">      </span><span class="m">5</span><span class="w"> </span><span class="m">0.09090909</span><span class="w"> </span><span class="m">0.24452049</span><span class="w"> </span><span class="m">1.21469</span><span class="w">  </span><span class="m">4.089637</span>
+<span class="w"> </span><span class="m">6</span><span class="o">:</span><span class="w">      </span><span class="m">6</span><span class="w"> </span><span class="m">0.11363636</span><span class="w"> </span><span class="m">0.29701659</span><span class="w"> </span><span class="m">1.28128</span><span class="w">  </span><span class="m">3.366815</span>
+<span class="w"> </span><span class="m">7</span><span class="o">:</span><span class="w">      </span><span class="m">7</span><span class="w"> </span><span class="m">0.13636364</span><span class="w"> </span><span class="m">0.38056142</span><span class="w"> </span><span class="m">1.15415</span><span class="w">  </span><span class="m">2.627697</span>
+<span class="w"> </span><span class="m">8</span><span class="o">:</span><span class="w">      </span><span class="m">8</span><span class="w"> </span><span class="m">0.15909091</span><span class="w"> </span><span class="m">0.43922497</span><span class="w"> </span><span class="m">1.09783</span><span class="w">  </span><span class="m">2.276738</span>
+<span class="w"> </span><span class="m">9</span><span class="o">:</span><span class="w">      </span><span class="m">9</span><span class="w"> </span><span class="m">0.18181818</span><span class="w"> </span><span class="m">0.48219434</span><span class="w"> </span><span class="m">1.09302</span><span class="w">  </span><span class="m">2.073853</span>
+<span class="m">10</span><span class="o">:</span><span class="w">     </span><span class="m">10</span><span class="w"> </span><span class="m">0.20454545</span><span class="w"> </span><span class="m">0.52704806</span><span class="w"> </span><span class="m">1.06395</span><span class="w">  </span><span class="m">1.897360</span>
+<span class="m">11</span><span class="o">:</span><span class="w">     </span><span class="m">11</span><span class="w"> </span><span class="m">0.22727273</span><span class="w"> </span><span class="m">0.56075279</span><span class="w"> </span><span class="m">1.04992</span><span class="w">  </span><span class="m">1.783317</span>
+<span class="m">12</span><span class="o">:</span><span class="w">     </span><span class="m">12</span><span class="w"> </span><span class="m">0.25000000</span><span class="w"> </span><span class="m">0.58874556</span><span class="w"> </span><span class="m">1.04659</span><span class="w">  </span><span class="m">1.698527</span>
+<span class="m">13</span><span class="o">:</span><span class="w">     </span><span class="m">13</span><span class="w"> </span><span class="m">0.27272727</span><span class="w"> </span><span class="m">0.61617522</span><span class="w"> </span><span class="m">1.05164</span><span class="w">  </span><span class="m">1.622915</span>
+<span class="m">14</span><span class="o">:</span><span class="w">     </span><span class="m">14</span><span class="w"> </span><span class="m">0.29545455</span><span class="w"> </span><span class="m">0.64799451</span><span class="w"> </span><span class="m">1.03117</span><span class="w">  </span><span class="m">1.543223</span>
+<span class="m">15</span><span class="o">:</span><span class="w">     </span><span class="m">15</span><span class="w"> </span><span class="m">0.31818182</span><span class="w"> </span><span class="m">0.66819250</span><span class="w"> </span><span class="m">1.02360</span><span class="w">  </span><span class="m">1.496575</span>
+<span class="m">16</span><span class="o">:</span><span class="w">     </span><span class="m">16</span><span class="w"> </span><span class="m">0.34090909</span><span class="w"> </span><span class="m">0.68396184</span><span class="w"> </span><span class="m">1.06338</span><span class="w">  </span><span class="m">1.462070</span>
+<span class="m">17</span><span class="o">:</span><span class="w">     </span><span class="m">17</span><span class="w"> </span><span class="m">0.36363636</span><span class="w"> </span><span class="m">0.72731134</span><span class="w"> </span><span class="m">1.03234</span><span class="w">  </span><span class="m">1.374927</span>
+<span class="m">18</span><span class="o">:</span><span class="w">     </span><span class="m">18</span><span class="w"> </span><span class="m">0.38636364</span><span class="w"> </span><span class="m">0.75083259</span><span class="w"> </span><span class="m">1.01720</span><span class="w">  </span><span class="m">1.331855</span>
+<span class="m">19</span><span class="o">:</span><span class="w">     </span><span class="m">19</span><span class="w"> </span><span class="m">0.40909091</span><span class="w"> </span><span class="m">0.76374691</span><span class="w"> </span><span class="m">1.01795</span><span class="w">  </span><span class="m">1.309334</span>
+<span class="m">20</span><span class="o">:</span><span class="w">     </span><span class="m">20</span><span class="w"> </span><span class="m">0.43181818</span><span class="w"> </span><span class="m">0.77745617</span><span class="w"> </span><span class="m">1.01813</span><span class="w">  </span><span class="m">1.286246</span>
+<span class="m">21</span><span class="o">:</span><span class="w">     </span><span class="m">21</span><span class="w"> </span><span class="m">0.45454545</span><span class="w"> </span><span class="m">0.79155145</span><span class="w"> </span><span class="m">1.01413</span><span class="w">  </span><span class="m">1.263342</span>
+<span class="m">22</span><span class="o">:</span><span class="w">     </span><span class="m">22</span><span class="w"> </span><span class="m">0.47727273</span><span class="w"> </span><span class="m">0.80273607</span><span class="w"> </span><span class="m">1.00863</span><span class="w">  </span><span class="m">1.245739</span>
+<span class="m">23</span><span class="o">:</span><span class="w">     </span><span class="m">23</span><span class="w"> </span><span class="m">0.50000000</span><span class="w"> </span><span class="m">0.80966368</span><span class="w"> </span><span class="m">1.01346</span><span class="w">  </span><span class="m">1.235081</span>
+<span class="m">24</span><span class="o">:</span><span class="w">     </span><span class="m">24</span><span class="w"> </span><span class="m">0.52272727</span><span class="w"> </span><span class="m">0.82056176</span><span class="w"> </span><span class="m">1.00372</span><span class="w">  </span><span class="m">1.218677</span>
+<span class="m">25</span><span class="o">:</span><span class="w">     </span><span class="m">25</span><span class="w"> </span><span class="m">0.54545455</span><span class="w"> </span><span class="m">0.82361425</span><span class="w"> </span><span class="m">1.00423</span><span class="w">  </span><span class="m">1.214161</span>
+<span class="m">26</span><span class="o">:</span><span class="w">     </span><span class="m">26</span><span class="w"> </span><span class="m">0.56818182</span><span class="w"> </span><span class="m">0.82709813</span><span class="w"> </span><span class="m">1.00683</span><span class="w">  </span><span class="m">1.209046</span>
+<span class="m">27</span><span class="o">:</span><span class="w">     </span><span class="m">27</span><span class="w"> </span><span class="m">0.59090909</span><span class="w"> </span><span class="m">0.83274721</span><span class="w"> </span><span class="m">1.04633</span><span class="w">  </span><span class="m">1.200845</span>
+<span class="m">28</span><span class="o">:</span><span class="w">     </span><span class="m">28</span><span class="w"> </span><span class="m">0.61363636</span><span class="w"> </span><span class="m">0.87132839</span><span class="w"> </span><span class="m">1.01796</span><span class="w">  </span><span class="m">1.147673</span>
+<span class="m">29</span><span class="o">:</span><span class="w">     </span><span class="m">29</span><span class="w"> </span><span class="m">0.63636364</span><span class="w"> </span><span class="m">0.88697745</span><span class="w"> </span><span class="m">1.02279</span><span class="w">  </span><span class="m">1.127424</span>
+<span class="m">30</span><span class="o">:</span><span class="w">     </span><span class="m">30</span><span class="w"> </span><span class="m">0.65909091</span><span class="w"> </span><span class="m">0.90719167</span><span class="w"> </span><span class="m">1.00629</span><span class="w">  </span><span class="m">1.102303</span>
+<span class="m">31</span><span class="o">:</span><span class="w">     </span><span class="m">31</span><span class="w"> </span><span class="m">0.68181818</span><span class="w"> </span><span class="m">0.91289790</span><span class="w"> </span><span class="m">1.00205</span><span class="w">  </span><span class="m">1.095413</span>
+<span class="m">32</span><span class="o">:</span><span class="w">     </span><span class="m">32</span><span class="w"> </span><span class="m">0.70454545</span><span class="w"> </span><span class="m">0.91476934</span><span class="w"> </span><span class="m">1.00316</span><span class="w">  </span><span class="m">1.093172</span>
+<span class="m">33</span><span class="o">:</span><span class="w">     </span><span class="m">33</span><span class="w"> </span><span class="m">0.72727273</span><span class="w"> </span><span class="m">0.91766001</span><span class="w"> </span><span class="m">1.00700</span><span class="w">  </span><span class="m">1.089728</span>
+<span class="m">34</span><span class="o">:</span><span class="w">     </span><span class="m">34</span><span class="w"> </span><span class="m">0.75000000</span><span class="w"> </span><span class="m">0.92408363</span><span class="w"> </span><span class="m">1.02828</span><span class="w">  </span><span class="m">1.082153</span>
+<span class="m">35</span><span class="o">:</span><span class="w">     </span><span class="m">35</span><span class="w"> </span><span class="m">0.77272727</span><span class="w"> </span><span class="m">0.95021672</span><span class="w"> </span><span class="m">1.00117</span><span class="w">  </span><span class="m">1.052392</span>
+<span class="m">36</span><span class="o">:</span><span class="w">     </span><span class="m">36</span><span class="w"> </span><span class="m">0.79545455</span><span class="w"> </span><span class="m">0.95132847</span><span class="w"> </span><span class="m">1.00303</span><span class="w">  </span><span class="m">1.051162</span>
+<span class="m">37</span><span class="o">:</span><span class="w">     </span><span class="m">37</span><span class="w"> </span><span class="m">0.81818182</span><span class="w"> </span><span class="m">0.95421100</span><span class="w"> </span><span class="m">1.00055</span><span class="w">  </span><span class="m">1.047986</span>
+<span class="m">38</span><span class="o">:</span><span class="w">     </span><span class="m">38</span><span class="w"> </span><span class="m">0.84090909</span><span class="w"> </span><span class="m">0.95473581</span><span class="w"> </span><span class="m">1.02272</span><span class="w">  </span><span class="m">1.047410</span>
+<span class="m">39</span><span class="o">:</span><span class="w">     </span><span class="m">39</span><span class="w"> </span><span class="m">0.86363636</span><span class="w"> </span><span class="m">0.97642741</span><span class="w"> </span><span class="m">1.00678</span><span class="w">  </span><span class="m">1.024142</span>
+<span class="m">40</span><span class="o">:</span><span class="w">     </span><span class="m">40</span><span class="w"> </span><span class="m">0.88636364</span><span class="w"> </span><span class="m">0.98304759</span><span class="w"> </span><span class="m">1.00152</span><span class="w">  </span><span class="m">1.017245</span>
+<span class="m">41</span><span class="o">:</span><span class="w">     </span><span class="m">41</span><span class="w"> </span><span class="m">0.90909091</span><span class="w"> </span><span class="m">0.98454182</span><span class="w"> </span><span class="m">1.00013</span><span class="w">  </span><span class="m">1.015701</span>
+<span class="m">42</span><span class="o">:</span><span class="w">     </span><span class="m">42</span><span class="w"> </span><span class="m">0.93181818</span><span class="w"> </span><span class="m">0.98466981</span><span class="w"> </span><span class="m">1.01347</span><span class="w">  </span><span class="m">1.015569</span>
+<span class="m">43</span><span class="o">:</span><span class="w">     </span><span class="m">43</span><span class="w"> </span><span class="m">0.95454545</span><span class="w"> </span><span class="m">0.99793331</span><span class="w"> </span><span class="m">1.00000</span><span class="w">  </span><span class="m">1.002071</span>
+<span class="m">44</span><span class="o">:</span><span class="w">     </span><span class="m">44</span><span class="w"> </span><span class="m">0.97727273</span><span class="w"> </span><span class="m">0.99793331</span><span class="w"> </span><span class="m">1.00071</span><span class="w">  </span><span class="m">1.002071</span>
+<span class="m">45</span><span class="o">:</span><span class="w">     </span><span class="m">45</span><span class="w"> </span><span class="m">1.00000000</span><span class="w"> </span><span class="m">0.99864185</span><span class="w"> </span><span class="m">1.00136</span><span class="w">  </span><span class="m">1.001360</span>
+<span class="w">     </span><span class="n">xinit</span><span class="w">          </span><span class="n">x</span><span class="w">          </span><span class="n">y</span><span class="w">    </span><span class="n">ldf0</span><span class="w">     </span><span class="n">cldf0</span>
+</code></pre></div>
+
+<h3>Smoothing via Polynomial&nbsp;Regression</h3>
+<p>Polynomial regression is similar to standard linear regression, except the design matrix contains <code>x</code> raised to the 
+desired power in each column. For example, assuming we have independent value <code>x</code> given&nbsp;by:</p>
+<div class="highlight"><pre><span></span><code>x = c(2, 4, 7, 5, 2)
+</code></pre></div>
+
+<p>Instead of regressing a response <code>y</code> on <code>x</code> alone, polynomial regression fits <code>y</code> using the matrix <code>X</code>:</p>
+<div class="highlight"><pre><span></span><code>     1  2   3
+[1,] 2  4   8
+[2,] 4 16  64
+[3,] 7 49 343
+[4,] 5 25 125
+[5,] 2  4   8
+</code></pre></div>
+
+<p>Notice each column represents <code>x</code> raised to the power in the column header. The first column is $x^{1}$, the second 
+$x^{2}$ and the third $x^{3}$. Creating the design matrix in R can be accomplished using the <code>poly</code> function. Next we 
+create the design matrix <code>X</code> and fit a polynomial regression model of degree 3 to our&nbsp;data:</p>
+<div class="highlight"><pre><span></span><code><span class="n">X</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">poly</span><span class="p">(</span><span class="n">DF</span><span class="o">$</span><span class="n">x</span><span class="p">,</span><span class="w"> </span><span class="n">degree</span><span class="o">=</span><span class="m">3</span><span class="p">,</span><span class="w"> </span><span class="n">raw</span><span class="o">=</span><span class="kc">TRUE</span><span class="p">)</span>
+<span class="n">y</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">DF</span><span class="o">$</span><span class="n">y</span>
+
+<span class="c1"># Combine design matrix with target response y (pous).</span>
+<span class="n">DF1</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">setDT</span><span class="p">(</span><span class="nf">cbind.data.frame</span><span class="p">(</span><span class="n">X</span><span class="p">,</span><span class="w"> </span><span class="n">y</span><span class="p">))</span>
+
+<span class="c1"># Call lm function. On RHS of formula, `.` specifies all columns in DF0 are to be used. </span>
+<span class="n">mdl</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">lm</span><span class="p">(</span><span class="n">y</span><span class="w"> </span><span class="o">~</span><span class="w"> </span><span class="n">.</span><span class="p">,</span><span class="w"> </span><span class="n">data</span><span class="o">=</span><span class="n">DF1</span><span class="p">)</span>
+
+<span class="c1"># Bind reference to fitted values as yhat1.</span>
+<span class="n">DF</span><span class="p">[,</span><span class="n">yhat1</span><span class="o">:=</span><span class="nf">unname</span><span class="p">(</span><span class="nf">predict</span><span class="p">(</span><span class="n">mdl</span><span class="p">))]</span>
+</code></pre></div>
+
+<p>A visualization overlaying polynomial regression estimates with original percent-of-ultimate factors is presented 
+below (this code will be reused for all exhibits that follow, with inputs updated as&nbsp;necessary):</p>
+<div class="highlight"><pre><span></span><code><span class="n">exhibitTitle</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">paste0</span><span class="p">(</span><span class="s">&quot;Polynomial Regression: Percent-of-Ultimate Modeled vs. Actual&quot;</span><span class="p">)</span>
+
+<span class="nf">ggplot</span><span class="p">(</span><span class="n">DF</span><span class="p">)</span><span class="w"> </span><span class="o">+</span><span class="w"> </span>
+<span class="w">    </span><span class="nf">geom_point</span><span class="p">(</span><span class="nf">aes</span><span class="p">(</span><span class="n">x</span><span class="o">=</span><span class="n">xinit</span><span class="p">,</span><span class="w"> </span><span class="n">y</span><span class="o">=</span><span class="n">y</span><span class="p">,</span><span class="w"> </span><span class="n">color</span><span class="o">=</span><span class="s">&quot;Actual&quot;</span><span class="p">),</span><span class="w">  </span><span class="n">size</span><span class="o">=</span><span class="m">2</span><span class="p">)</span><span class="w"> </span><span class="o">+</span>
+<span class="w">    </span><span class="nf">geom_line</span><span class="p">(</span><span class="nf">aes</span><span class="p">(</span><span class="n">x</span><span class="o">=</span><span class="n">xinit</span><span class="p">,</span><span class="w"> </span><span class="n">y</span><span class="o">=</span><span class="n">yhat1</span><span class="p">,</span><span class="w"> </span><span class="n">color</span><span class="o">=</span><span class="s">&quot;Predicted&quot;</span><span class="p">),</span><span class="w"> </span><span class="n">size</span><span class="o">=</span><span class="m">1.0</span><span class="p">)</span><span class="w"> </span><span class="o">+</span><span class="w"> </span>
+<span class="w">    </span><span class="nf">guides</span><span class="p">(</span><span class="n">color</span><span class="o">=</span><span class="nf">guide_legend</span><span class="p">(</span><span class="n">override.aes</span><span class="o">=</span><span class="nf">list</span><span class="p">(</span><span class="n">shape</span><span class="o">=</span><span class="nf">c</span><span class="p">(</span><span class="m">16</span><span class="p">,</span><span class="w"> </span><span class="kc">NA</span><span class="p">),</span><span class="w"> </span><span class="n">linetype</span><span class="o">=</span><span class="nf">c</span><span class="p">(</span><span class="m">0</span><span class="p">,</span><span class="w"> </span><span class="m">1</span><span class="p">))))</span><span class="w"> </span><span class="o">+</span>
+<span class="w">    </span><span class="nf">scale_color_manual</span><span class="p">(</span><span class="s">&quot;&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">values</span><span class="o">=</span><span class="nf">c</span><span class="p">(</span><span class="s">&quot;Actual&quot;</span><span class="o">=</span><span class="s">&quot;#758585&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;Predicted&quot;</span><span class="o">=</span><span class="s">&quot;#E02C70&quot;</span><span class="p">))</span><span class="w"> </span><span class="o">+</span>
+<span class="w">    </span><span class="nf">scale_x_continuous</span><span class="p">(</span><span class="n">breaks</span><span class="o">=</span><span class="nf">seq</span><span class="p">(</span><span class="nf">min</span><span class="p">(</span><span class="n">DF</span><span class="o">$</span><span class="n">xinit</span><span class="p">),</span><span class="w"> </span><span class="nf">max</span><span class="p">(</span><span class="n">DF</span><span class="o">$</span><span class="n">xinit</span><span class="p">),</span><span class="w"> </span><span class="m">2</span><span class="p">))</span><span class="w"> </span><span class="o">+</span><span class="w"> </span>
+<span class="w">    </span><span class="nf">scale_y_continuous</span><span class="p">(</span><span class="n">breaks</span><span class="o">=</span><span class="nf">seq</span><span class="p">(</span><span class="m">0</span><span class="p">,</span><span class="w"> </span><span class="m">1</span><span class="p">,</span><span class="w"> </span><span class="n">.</span><span class="m">1</span><span class="p">))</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="nf">ggtitle</span><span class="p">(</span><span class="n">exhibitTitle</span><span class="p">)</span><span class="w"> </span><span class="o">+</span>
+<span class="w">    </span><span class="nf">theme</span><span class="p">(</span>
+<span class="w">        </span><span class="n">plot.title</span><span class="o">=</span><span class="nf">element_text</span><span class="p">(</span><span class="n">size</span><span class="o">=</span><span class="m">10</span><span class="p">,</span><span class="w"> </span><span class="n">color</span><span class="o">=</span><span class="s">&quot;#E02C70&quot;</span><span class="p">),</span><span class="w"> </span>
+<span class="w">        </span><span class="n">axis.title.x</span><span class="o">=</span><span class="nf">element_blank</span><span class="p">(),</span><span class="w"> </span><span class="n">axis.title.y</span><span class="o">=</span><span class="nf">element_blank</span><span class="p">(),</span><span class="w"> </span>
+<span class="w">        </span><span class="n">axis.text.x</span><span class="o">=</span><span class="nf">element_text</span><span class="p">(</span><span class="n">angle</span><span class="o">=</span><span class="m">0</span><span class="p">,</span><span class="w"> </span><span class="n">vjust</span><span class="o">=</span><span class="m">0.5</span><span class="p">,</span><span class="w"> </span><span class="n">size</span><span class="o">=</span><span class="m">8</span><span class="p">),</span>
+<span class="w">        </span><span class="n">axis.text.y</span><span class="o">=</span><span class="nf">element_text</span><span class="p">(</span><span class="n">size</span><span class="o">=</span><span class="m">8</span><span class="p">)</span>
+<span class="w">        </span><span class="p">)</span>
+</code></pre></div>
+
+<p><img alt="Rsmooth1" src="https://drive.google.com/uc?export=view&amp;id=1VdWnRyZ4tBquh558HHdlVcSF9jUBKai3"></p>
+<p>There is a generally good fit to actuals, but notice that for later development periods, estimates are increasing upward 
+rather than leveling off asymptotically toward 1.0. This is one of the drawbacks of polynomial regression: The bases are 
+non-local, meaning that the fitted value of $y$ at a given value $x=x_{0}$ depends strongly on data values for $x$ far 
+from $x_{0}$. In modern statistical modeling applications, polynomial basis-functions are used along with new basis 
+functions such as splines, introduced&nbsp;next.</p>
+<h3>Smoothing via B-Spline&nbsp;Regression</h3>
+<p>B-spline regression remedies the shortcomings of polynomial regression, namely the issue of non-locality. I&#8217;m going to 
+demonstrate the usage of B-splines within the context of R rather than delve into the mathematical details. 
+For an in-depth overview of B-splines, refer to 
+<a href="https://web.stanford.edu/~hastie/Papers/ESLII.pdf"><em>Elements of Statistical Learning</em></a>, specifically chapter&nbsp;5. </p>
+<p>To perform B-spline regression in R, the <code>bs</code> function is used to generate the B-spline basis matrix for a polynomial 
+spline. The number of spline knots to use is specified, along with the degree of polynomial to use (defaults to 3). We 
+then generate the knot locations using the range of our independent value (<code>x</code>) and the number of knots using the <code>seq</code> 
+function. Techniques can be used to minimize a cost function, such as <span class="caps">LOOCV</span> to minimize average <span class="caps">MSE</span> in order to determine 
+the optimal number of knots, but we omit this step and instead arbitrarily choose 5 knots for the purposes of 
+demonstration. As a rule-of-thumb, more knots leads to higher variance and lower&nbsp;bias.</p>
+<div class="highlight"><pre><span></span><code><span class="nf">library</span><span class="p">(</span><span class="s">&quot;splines&quot;</span><span class="p">)</span>
+
+<span class="n">y</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">DF</span><span class="o">$</span><span class="n">y</span>
+<span class="n">nbrSplineKnots</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="m">5</span>
+
+<span class="c1"># Knot locations using data min/max and nbrSplineKnots. </span>
+<span class="n">knotsSeq</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">seq</span><span class="p">(</span><span class="nf">min</span><span class="p">(</span><span class="n">DF</span><span class="o">$</span><span class="n">x</span><span class="p">),</span><span class="w"> </span><span class="nf">max</span><span class="p">(</span><span class="n">DF</span><span class="o">$</span><span class="n">x</span><span class="p">),</span><span class="w"> </span><span class="n">length.out</span><span class="o">=</span><span class="n">nbrSplineKnots</span><span class="p">)</span>
+
+<span class="c1"># Create basis matrix using splines::bs. degree=3 represents cubic spline.</span>
+<span class="n">Bbasis</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">bs</span><span class="p">(</span><span class="n">DF</span><span class="o">$</span><span class="n">x</span><span class="p">,</span><span class="w"> </span><span class="n">knots</span><span class="o">=</span><span class="n">knotsSeq</span><span class="p">,</span><span class="w"> </span><span class="n">degree</span><span class="o">=</span><span class="m">3</span><span class="p">)</span>
+
+<span class="c1"># Drop columns containing only a single value.</span>
+<span class="n">Bbasis</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">as.matrix</span><span class="p">(</span><span class="nf">Filter</span><span class="p">(</span><span class="nf">function</span><span class="p">(</span><span class="n">v</span><span class="p">)</span><span class="w"> </span><span class="nf">uniqueN</span><span class="p">(</span><span class="n">v</span><span class="p">)</span><span class="o">&gt;</span><span class="m">1</span><span class="p">,</span><span class="w"> </span><span class="nf">as.data.table</span><span class="p">(</span><span class="n">Bbasis</span><span class="p">)))</span>
+
+<span class="c1"># Combine design matrix with target y (pous).</span>
+<span class="n">DF2</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">setDT</span><span class="p">(</span><span class="nf">cbind.data.frame</span><span class="p">(</span><span class="n">Bbasis</span><span class="p">,</span><span class="w"> </span><span class="n">y</span><span class="p">))</span>
+
+<span class="c1"># Fit B-spline regression model. </span>
+<span class="n">mdl2</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">lm</span><span class="p">(</span><span class="n">y</span><span class="w"> </span><span class="o">~</span><span class="w"> </span><span class="n">.</span><span class="p">,</span><span class="w"> </span><span class="n">data</span><span class="o">=</span><span class="n">DF2</span><span class="p">)</span>
+
+<span class="c1"># Bind reference to fitted values as yhat2.</span>
+<span class="n">DF</span><span class="p">[,</span><span class="n">yhat2</span><span class="o">:=</span><span class="nf">unname</span><span class="p">(</span><span class="nf">predict</span><span class="p">(</span><span class="n">mdl2</span><span class="p">))]</span>
+</code></pre></div>
+
+<p>Running the same ggplot2 code from before, replacing <code>yhat1</code> with <code>yhat2</code>, we&nbsp;obtain:</p>
+<p><img alt="Rsmooth2" src="https://drive.google.com/uc?export=view&amp;id=1VUhADvMoe3AMeIvZBgNXzuRYwCLiO6Q8"></p>
+<p>Polynomial regression and B-spline estimates are similar, but B-spline estimates exhibit better behavior in the later 
+periods, with estimates far less influenced by erratic observations, while also approaching 1.0 on the right. The B-spline 
+fit exhibits a good trade-off between bias and&nbsp;variance. </p>
+<h3>Smoothing via <code>smooth.spline</code></h3>
+<p>${x_{i},Y_{i}:i=1,\dots ,n}$, which we model by $Y_{i} = f(x_{i}) + \epsilon_{i}$, where $\epsilon_{i}$ are zero mean 
+random errors. The cubic smoothing spline estimate $\hat{f}$ of the function $f$ is defined to be the minimizer&nbsp;of:</p>
+<p>$$
+\sum <em i>{i=1}^{n}[Y</em>-{\hat {f}}(x_{i})]^{2}+\lambda \int {\hat {f}}&#8221;(x)^{2}dx,&nbsp;$$</p>
+<p>where $\lambda \geq 0$ is a smoothing parameter wehich controls the bias variance trade-off. With respect to the 
+<code>smooth.spline</code> function, $\lambda$ is identified as <code>spar</code>, where <code>0 &lt;= spar &lt;=1</code>. As <code>spar</code> approaches 1, the fit 
+resembles linear regression (low variance / high bias). As <code>spar</code> approaches 0, the fit resembles interpolation 
+(high variance / low bias). For the purposes of demonstration, we set <code>spar=.70</code> and <code>df</code> (degrees of freedom) to the 
+number of records in the&nbsp;data:</p>
+<div class="highlight"><pre><span></span><code><span class="n">smoothParam</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">.</span><span class="m">70</span>
+<span class="n">yhat3</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">smooth.spline</span><span class="p">(</span><span class="n">DF</span><span class="o">$</span><span class="n">x</span><span class="p">,</span><span class="w"> </span><span class="n">DF</span><span class="o">$</span><span class="n">y</span><span class="p">,</span><span class="w"> </span><span class="n">df</span><span class="o">=</span><span class="nf">nrow</span><span class="p">(</span><span class="n">DF</span><span class="p">),</span><span class="w"> </span><span class="n">spar</span><span class="o">=</span><span class="n">smoothParam</span><span class="p">)</span><span class="o">$</span><span class="n">y</span>
+<span class="n">DF</span><span class="p">[,</span><span class="n">yhat3</span><span class="o">:=</span><span class="n">yhat3</span><span class="p">]</span>
+</code></pre></div>
+
+<p><code>yhat3</code> vs.&nbsp;percent-of-ultimates:</p>
+<p><img alt="Rsmooth3" src="https://drive.google.com/uc?export=view&amp;id=1VQDMubzD8jF-V1fl9oC8HX1GJZY9m010"></p>
+<p>It comes as no surprise that <code>smooth.spline</code> predictions are similar to B-spline estimates. To demonstrate how changing 
+<code>spar</code> modifies the nature of the curve, we present the next code block, which fits the original percent-of-ultimate data 
+using <code>smooth.spline</code> for 6 values of <code>spar</code>:</p>
+<div class="highlight"><pre><span></span><code><span class="nf">library</span><span class="p">(</span><span class="s">&quot;foreach&quot;</span><span class="p">)</span>
+
+<span class="n">targetSpar</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">c</span><span class="p">(</span><span class="n">.</span><span class="m">01</span><span class="p">,</span><span class="w"> </span><span class="n">.</span><span class="m">15</span><span class="p">,</span><span class="w"> </span><span class="n">.</span><span class="m">40</span><span class="w"> </span><span class="p">,</span><span class="w"> </span><span class="n">.</span><span class="m">60</span><span class="p">,</span><span class="w"> </span><span class="n">.</span><span class="m">85</span><span class="p">,</span><span class="w"> </span><span class="m">1.0</span><span class="p">)</span>
+
+<span class="n">DF3</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">foreach</span><span class="p">(</span>
+<span class="w">    </span><span class="n">i</span><span class="o">=</span><span class="m">1</span><span class="o">:</span><span class="nf">length</span><span class="p">(</span><span class="n">targetSpar</span><span class="p">),</span><span class="w"> </span><span class="n">.inorder</span><span class="o">=</span><span class="kc">TRUE</span><span class="p">,</span><span class="w"> </span><span class="n">.errorhandling</span><span class="o">=</span><span class="s">&quot;stop&quot;</span><span class="p">,</span><span class="w"> </span>
+<span class="w">    </span><span class="n">.final</span><span class="o">=</span><span class="nf">function</span><span class="p">(</span><span class="n">ll</span><span class="p">)</span><span class="w"> </span><span class="nf">rbindlist</span><span class="p">(</span><span class="n">ll</span><span class="p">,</span><span class="w"> </span><span class="n">fill</span><span class="o">=</span><span class="kc">TRUE</span><span class="p">)</span>
+<span class="p">)</span><span class="w"> </span><span class="o">%do%</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="n">currSpar</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">targetSpar</span><span class="p">[[</span><span class="n">i</span><span class="p">]]</span>
+<span class="w">    </span><span class="n">currDF</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">DF</span><span class="p">[,</span><span class="nf">.</span><span class="p">(</span><span class="n">xinit</span><span class="p">,</span><span class="w"> </span><span class="n">x</span><span class="p">,</span><span class="w"> </span><span class="n">y</span><span class="p">)]</span>
+<span class="w">    </span><span class="n">sparID</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">paste0</span><span class="p">(</span><span class="s">&quot;spar=&quot;</span><span class="p">,</span><span class="w"> </span><span class="nf">round</span><span class="p">(</span><span class="n">currSpar</span><span class="p">,</span><span class="w"> </span><span class="m">2</span><span class="p">))</span>
+<span class="w">    </span><span class="n">mdl</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">smooth.spline</span><span class="p">(</span><span class="n">currDF</span><span class="p">[,</span><span class="n">x</span><span class="p">],</span><span class="w"> </span><span class="n">currDF</span><span class="p">[,</span><span class="n">y</span><span class="p">],</span><span class="w"> </span><span class="n">df</span><span class="o">=</span><span class="nf">nrow</span><span class="p">(</span><span class="n">currDF</span><span class="p">),</span><span class="w"> </span><span class="n">spar</span><span class="o">=</span><span class="n">currSpar</span><span class="p">)</span>
+<span class="w">    </span><span class="n">currDF</span><span class="p">[,</span><span class="nf">`:=`</span><span class="p">(</span><span class="n">yhat</span><span class="o">=</span><span class="n">mdl</span><span class="o">$</span><span class="n">y</span><span class="p">,</span><span class="w"> </span><span class="n">id</span><span class="o">=</span><span class="n">sparID</span><span class="p">,</span><span class="w"> </span><span class="n">spar</span><span class="o">=</span><span class="n">currSpar</span><span class="p">)]</span>
+<span class="p">}</span>
+
+<span class="nf">ggplot</span><span class="p">(</span><span class="n">DF3</span><span class="p">)</span><span class="w"> </span><span class="o">+</span><span class="w"> </span>
+<span class="w">    </span><span class="nf">geom_point</span><span class="p">(</span><span class="nf">aes</span><span class="p">(</span><span class="n">x</span><span class="o">=</span><span class="n">xinit</span><span class="p">,</span><span class="w"> </span><span class="n">y</span><span class="o">=</span><span class="n">y</span><span class="p">,</span><span class="w"> </span><span class="n">color</span><span class="o">=</span><span class="s">&quot;Actual&quot;</span><span class="p">),</span><span class="w">  </span><span class="n">size</span><span class="o">=</span><span class="m">1.5</span><span class="p">)</span><span class="w"> </span><span class="o">+</span>
+<span class="w">    </span><span class="nf">geom_line</span><span class="p">(</span><span class="nf">aes</span><span class="p">(</span><span class="n">x</span><span class="o">=</span><span class="n">xinit</span><span class="p">,</span><span class="w"> </span><span class="n">y</span><span class="o">=</span><span class="n">yhat</span><span class="p">,</span><span class="w"> </span><span class="n">color</span><span class="o">=</span><span class="s">&quot;Predicted&quot;</span><span class="p">),</span><span class="w"> </span><span class="n">size</span><span class="o">=</span><span class="n">.</span><span class="m">75</span><span class="p">)</span><span class="w"> </span><span class="o">+</span><span class="w"> </span>
+<span class="w">    </span><span class="nf">scale_color_manual</span><span class="p">(</span><span class="s">&quot;&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">values</span><span class="o">=</span><span class="nf">c</span><span class="p">(</span><span class="s">&quot;Actual&quot;</span><span class="o">=</span><span class="s">&quot;#758585&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;Predicted&quot;</span><span class="o">=</span><span class="s">&quot;#E02C70&quot;</span><span class="p">))</span><span class="w"> </span><span class="o">+</span>
+<span class="w">    </span><span class="nf">scale_x_continuous</span><span class="p">(</span><span class="n">breaks</span><span class="o">=</span><span class="nf">seq</span><span class="p">(</span><span class="nf">min</span><span class="p">(</span><span class="n">DF3</span><span class="o">$</span><span class="n">xinit</span><span class="p">),</span><span class="w"> </span><span class="nf">max</span><span class="p">(</span><span class="n">DF3</span><span class="o">$</span><span class="n">xinit</span><span class="p">),</span><span class="w"> </span><span class="m">2</span><span class="p">))</span><span class="w"> </span><span class="o">+</span><span class="w"> </span>
+<span class="w">    </span><span class="nf">scale_y_continuous</span><span class="p">(</span><span class="n">breaks</span><span class="o">=</span><span class="nf">seq</span><span class="p">(</span><span class="m">0</span><span class="p">,</span><span class="w"> </span><span class="m">1</span><span class="p">,</span><span class="w"> </span><span class="n">.</span><span class="m">1</span><span class="p">))</span><span class="w"> </span><span class="o">+</span><span class="w"> </span>
+<span class="w">    </span><span class="nf">facet_wrap</span><span class="p">(</span><span class="n">facets</span><span class="o">=</span><span class="nf">vars</span><span class="p">(</span><span class="n">id</span><span class="p">),</span><span class="w"> </span><span class="n">nrow</span><span class="o">=</span><span class="m">2</span><span class="p">,</span><span class="w"> </span><span class="n">scales</span><span class="o">=</span><span class="s">&quot;free&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">shrink</span><span class="o">=</span><span class="kc">FALSE</span><span class="p">)</span><span class="w"> </span><span class="o">+</span>
+<span class="w">    </span><span class="nf">ggtitle</span><span class="p">(</span><span class="s">&quot;smooth.spline Regression: Percent-of-Ultimate Modeled vs. Actual&quot;</span><span class="p">)</span><span class="w"> </span><span class="o">+</span>
+<span class="w">    </span><span class="nf">theme</span><span class="p">(</span>
+<span class="w">        </span><span class="n">plot.title</span><span class="o">=</span><span class="nf">element_text</span><span class="p">(</span><span class="n">size</span><span class="o">=</span><span class="m">10</span><span class="p">,</span><span class="w"> </span><span class="n">color</span><span class="o">=</span><span class="s">&quot;#E02C70&quot;</span><span class="p">),</span><span class="w"> </span>
+<span class="w">        </span><span class="n">axis.title.x</span><span class="o">=</span><span class="nf">element_blank</span><span class="p">(),</span><span class="w"> </span><span class="n">axis.title.y</span><span class="o">=</span><span class="nf">element_blank</span><span class="p">(),</span><span class="w"> </span>
+<span class="w">        </span><span class="n">axis.text.x</span><span class="o">=</span><span class="nf">element_blank</span><span class="p">(),</span><span class="w"> </span><span class="n">axis.text.y</span><span class="o">=</span><span class="nf">element_blank</span><span class="p">(),</span><span class="w"> </span>
+<span class="w">        </span><span class="n">legend.position</span><span class="o">=</span><span class="s">&quot;none&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">panel.grid.major</span><span class="o">=</span><span class="nf">element_blank</span><span class="p">(),</span><span class="w"> </span>
+<span class="w">        </span><span class="n">axis.ticks</span><span class="o">=</span><span class="nf">element_blank</span><span class="p">()</span>
+<span class="w">        </span><span class="p">)</span>
+</code></pre></div>
+
+<p><code>spar=1</code> is the lower-right facet (lowest variance/highest bias), and <code>spar=.01</code> the upper-left facet 
+(highest variance/lowest&nbsp;bias):</p>
+<p><img alt="Rsmooth4" src="https://drive.google.com/uc?export=view&amp;id=1VMVh3HJjErZdxhQURR9mbUsv5Q-3t7iA"></p>
+            </div>
+            <!-- /.entry-content -->
+        </article>
+    </section>
+
+        </div>
+        <div class="col-sm-3" id="sidebar">
+            <aside>
+<div id="aboutme">
+        <p>
+            <img width="100%" class="img-thumbnail" src="./images/JDTGOOG.JPG"/>
+        </p>
+    <p>
+      <strong>About James D. Triveri</strong><br/>
+        Data Scientist interested in ML/DL, automation and scientific computing.
+    </p>
+</div><!-- Sidebar -->
+<section class="well well-sm">
+  <ul class="list-group list-group-flush">
+
+<!-- Sidebar/Links -->
+<li class="list-group-item">
+  <h4><i class="fa fa-external-link-square fa-lg"></i><span class="icon-label">Links</span></h4>
+  <ul class="list-group" id="links">
+    <li class="list-group-item">
+      <a href="http://python.org/" target="_blank">Python.org</a>
+    </li>
+    <li class="list-group-item">
+      <a href="https://docs.python.org/3/py-modindex.html" target="_blank">The Python Module Index</a>
+    </li>
+    <li class="list-group-item">
+      <a href="https://scikit-learn.org/stable/documentation.html" target="_blank">Scikit-Learn</a>
+    </li>
+    <li class="list-group-item">
+      <a href="https://www.scipy.org/docs.html" target="_blank">Scipy Docs</a>
+    </li>
+    <li class="list-group-item">
+      <a href="https://openai.com/" target="_blank">OpenAI</a>
+    </li>
+  </ul>
+</li>
+<!-- End Sidebar/Links -->
+
+<!-- Sidebar/Images -->
+<li class="list-group-item">
+  <ul class="list-group" id="links">
+    <img width="100%" class="img-thumbnail" src="images/Sidebar/sidebarA.jpg"/>
+    <img width="100%" class="img-thumbnail" src="images/Sidebar/sidebarB.png"/>
+    <img width="100%" class="img-thumbnail" src="images/Sidebar/sidebarC.jpg"/>
+    <img width="100%" class="img-thumbnail" src="images/Sidebar/sidebarD.jpg"/>
+  </ul>
+</li>
+<!-- End Sidebar/Images -->
+  </ul>
+</section>
+<!-- End Sidebar -->            </aside>
+        </div>
+    </div>
+</div>
+<!-- End Content Container -->
+
+<footer>
+   <div class="container-fluid">
+      <hr>
+      <div class="row">
+         <div class="col-xs-10">&copy; 2023 James D. Triveri
+            &middot; Powered by <a href="https://github.com/getpelican/pelican-themes/tree/master/pelican-bootstrap3" target="_blank">pelican-bootstrap3</a>,
+            <a href="http://docs.getpelican.com/" target="_blank">Pelican</a>,
+            <a href="http://getbootstrap.com" target="_blank">Bootstrap</a>         </div>
+         <div class="col-xs-2"><p class="pull-right"><i class="fa fa-arrow-up"></i> <a href="#">Back to top</a></p></div>
+      </div>
+   </div>
+</footer>
+<script src="./theme/js/jquery.min.js"></script>
+
+<!-- Include all compiled plugins (below), or include individual files as needed -->
+<script src="./theme/js/bootstrap.min.js"></script>
+
+<!-- Enable responsive features in IE8 with Respond.js (https://github.com/scottjehl/Respond) -->
+<script src="./theme/js/respond.min.js"></script>
+
+
+    <script src="./theme/js/bodypadding.js"></script>
+
+
+</body>
+</html>

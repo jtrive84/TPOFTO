@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="en" prefix="og: http://ogp.me/ns# fb: https://www.facebook.com/2008/fbml">
+<head>
+    <title>Computing the Product of a Variable Number of Columns using data.table - The Pleasure of Finding Things Out</title>
+    <!-- Using the latest rendering mode for IE -->
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+
+
+<link rel="canonical" href="./computing-the-product-of-a-variable-number-of-columns-using-datatable.html">
+
+        <meta name="author" content="James D. Triveri" />
+        <meta name="keywords" content="R" />
+        <meta name="description" content="Computing the product of a variable number of columns using data.table" />
+
+        <meta property="og:site_name" content="The Pleasure of Finding Things Out" />
+        <meta property="og:type" content="article"/>
+        <meta property="og:title" content="Computing the Product of a Variable Number of Columns using data.table"/>
+        <meta property="og:url" content="./computing-the-product-of-a-variable-number-of-columns-using-datatable.html"/>
+        <meta property="og:description" content="Computing the product of a variable number of columns using data.table"/>
+        <meta property="article:published_time" content="2023-04-23" />
+            <meta property="article:section" content="R" />
+            <meta property="article:tag" content="R" />
+            <meta property="article:author" content="James D. Triveri" />
+
+
+
+    <!-- Bootstrap -->
+        <link rel="stylesheet" href="./theme/css/bootstrap.Yeti.min.css" type="text/css"/>
+    <link href="./theme/css/font-awesome.min.css" rel="stylesheet">
+
+    <link href="./theme/css/pygments/default.css" rel="stylesheet">
+        <link href="./theme/css/typogrify.css" rel="stylesheet">
+    <link rel="stylesheet" href="./theme/css/style.css" type="text/css"/>
+        <link href="./static/css/custom.css" rel="stylesheet">
+
+
+
+
+</head>
+<body>
+
+<div class="navbar navbar-inverse navbar-fixed-top" role="navigation">
+    <div class="container-fluid">
+        <div class="navbar-header">
+            <button type="button" class="navbar-toggle" data-toggle="collapse" data-target=".navbar-ex1-collapse">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            <a href="./" class="navbar-brand">
+The Pleasure of Finding Things Out            </a>
+        </div>
+        <div class="collapse navbar-collapse navbar-ex1-collapse">
+            <ul class="nav navbar-nav">
+                         <li><a href="./pages/about-me.html">
+                             About&nbsp;Me
+                          </a></li>
+                        <li >
+                            <a href="./category/machine-learning.html">Machine learning</a>
+                        </li>
+                        <li >
+                            <a href="./category/python.html">Python</a>
+                        </li>
+                        <li class="active">
+                            <a href="./category/r.html">R</a>
+                        </li>
+                        <li >
+                            <a href="./category/statistical-modeling.html">Statistical modeling</a>
+                        </li>
+            </ul>
+            <ul class="nav navbar-nav navbar-right">
+            </ul>
+        </div>
+        <!-- /.navbar-collapse -->
+    </div>
+</div> <!-- /.navbar -->
+
+<!-- Banner -->
+<!-- End Banner -->
+
+<!-- Content Container -->
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-sm-9">
+    <section id="content">
+        <article>
+            <header class="page-header">
+                <h1>
+                    <a href="./computing-the-product-of-a-variable-number-of-columns-using-datatable.html"
+                       rel="bookmark"
+                       title="Permalink to Computing the Product of a Variable Number of Columns using data.table">
+                        Computing the Product of a Variable Number of Columns using&nbsp;data.table
+                    </a>
+                </h1>
+            </header>
+            <div class="entry-content">
+                <div class="panel">
+                    <div class="panel-body">
+<footer class="post-info">
+    <span class="label label-default">Date</span>
+    <span class="published">
+        <i class="fa fa-calendar"></i><time datetime="2023-04-23T00:00:00-05:00"> 2023-04-23</time>
+    </span>
+
+
+
+
+
+<span class="label label-default">Tags</span>
+	<a href="./tag/r.html">R</a>
+    
+</footer><!-- /.post-info -->                    </div>
+                </div>
+                <p>Lets say you have a data.table with rating factors as columns associated with different coverages. For a simple 
+example, let&#8217;s assume a 2-coverage, 2-factor rating plan with a single <span class="caps">BI</span> factor <code>bi_occupancy_factor</code> and a single 
+property factor <code>prop_tiv_factor</code>. Also assume factors have been attached to a sample cohort of policies based on the 
+exposure&#8217;s risk characteristics. We construct the table&nbsp;below:</p>
+<div class="highlight"><pre><span></span><code><span class="c1"># Logic to create a synthetic rating factor table for a two coverage two-factor rating plan.</span>
+<span class="nf">library</span><span class="p">(</span><span class="s">&quot;data.table&quot;</span><span class="p">)</span>
+
+<span class="n">DF</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">data.table</span><span class="p">(</span>
+<span class="w">    </span><span class="n">policyno</span><span class="o">=</span><span class="nf">paste0</span><span class="p">(</span><span class="s">&quot;0000&quot;</span><span class="p">,</span><span class="w"> </span><span class="m">1</span><span class="o">:</span><span class="m">5</span><span class="p">),</span><span class="w"> </span><span class="n">locationno</span><span class="o">=</span><span class="nf">rep</span><span class="p">(</span><span class="m">1</span><span class="p">,</span><span class="w"> </span><span class="m">5</span><span class="p">),</span><span class="w"> </span>
+<span class="w">    </span><span class="n">prop_tiv_factor</span><span class="o">=</span><span class="nf">c</span><span class="p">(</span><span class="m">1.112</span><span class="p">,</span><span class="w"> </span><span class="m">1.255</span><span class="p">,</span><span class="w"> </span><span class="m">1.3125</span><span class="p">,</span><span class="w"> </span><span class="m">1.075</span><span class="p">,</span><span class="w"> </span><span class="m">1.3125</span><span class="p">),</span>
+<span class="w">    </span><span class="n">bi_occupancy_factor</span><span class="o">=</span><span class="nf">c</span><span class="p">(</span><span class="m">1.015</span><span class="p">,</span><span class="w"> </span><span class="m">1.0675</span><span class="p">,</span><span class="w"> </span><span class="m">1.0925</span><span class="p">,</span><span class="w"> </span><span class="m">1.0675</span><span class="p">,</span><span class="w"> </span><span class="m">1.0475</span><span class="p">),</span>
+<span class="w">    </span><span class="n">stringsAsFactors</span><span class="o">=</span><span class="kc">FALSE</span>
+<span class="w">    </span><span class="p">)</span>
+</code></pre></div>
+
+<p>The resulting table looks&nbsp;like:</p>
+<div class="highlight"><pre><span></span><code>   policyno locationno prop_tiv_factor bi_occupancy_factor
+1:    00001          1          1.1120              1.0150
+2:    00002          1          1.2550              1.0675
+3:    00003          1          1.3125              1.0925
+4:    00004          1          1.0750              1.0675
+5:    00005          1          1.3125              1.0475
+</code></pre></div>
+
+<p>Our goal is to create a new column which represents a combined property factor. With only a single property factor, 
+this is trivial, since we can simply set the combined property factor to <code>prop_tiv_factor</code>:</p>
+<div class="highlight"><pre><span></span><code><span class="n">DF</span><span class="p">[,</span><span class="n">prop_factor</span><span class="o">:=</span><span class="n">prop_tiv_factor</span><span class="p">]</span>
+</code></pre></div>
+
+<p>Resulting&nbsp;in:</p>
+<div class="highlight"><pre><span></span><code>   policyno locationno prop_tiv_factor bi_occupancy_factor prop_factor
+1:    00001          1          1.1120              1.0150      1.1120
+2:    00002          1          1.2550              1.0675      1.2550
+3:    00003          1          1.3125              1.0925      1.3125
+4:    00004          1          1.0750              1.0675      1.0750
+5:    00005          1          1.3125              1.0475      1.3125
+</code></pre></div>
+
+<p>Let&#8217;s assume the decision has been made to incorporate a new property rating factor into the plan, <code>prop_age_bld_factor</code>. 
+Our revised initial data.table <span class="caps">DF</span>&nbsp;becomes:</p>
+<div class="highlight"><pre><span></span><code>DF = data.table(
+    policyno=paste0(&quot;0000&quot;, 1:5), locationno=rep(1, 5), 
+    prop_tiv_factor=c(1.112, 1.255, 1.3125, 1.075, 1.3125),
+    bi_occupancy_factor=c(1.015, 1.0675, 1.0925, 1.0675, 1.0475),
+    prop_age_bld_factor=c(1.173, 1.21235, 1.0935, 1.2815, 1.1115),
+    stringsAsFactors=FALSE
+    )
+</code></pre></div>
+
+<p>Creating our combined property rating factor is still straightforward: This time, we simply 
+set <code>prop_factor</code> to the product of <code>prop_tiv_factor</code> and <code>prop_age_bld_factor</code> for every observation
+in <span class="caps">DF</span>:</p>
+<div class="highlight"><pre><span></span><code><span class="n">DF</span><span class="p">[,</span><span class="n">prop_factor</span><span class="o">:=</span><span class="n">prop_tiv_factor</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">prop_age_bld_factor</span><span class="p">]</span>
+</code></pre></div>
+
+<p>Which&nbsp;yields:</p>
+<div class="highlight"><pre><span></span><code>   policyno locationno prop_tiv_factor bi_occupancy_factor prop_age_bld_factor prop_factor
+1:    00001          1          1.1120              1.0150             1.17300    1.304376
+2:    00002          1          1.2550              1.0675             1.21235    1.521499
+3:    00003          1          1.3125              1.0925             1.09350    1.435219
+4:    00004          1          1.0750              1.0675             1.28150    1.377613
+5:    00005          1          1.3125              1.0475             1.11150    1.458844
+</code></pre></div>
+
+<p>Next the request is made to incorporate another property rating factor, this time <code>prop_deductible_factor</code>. 
+Our dataset now&nbsp;becomes:</p>
+<div class="highlight"><pre><span></span><code><span class="n">DF</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">data.table</span><span class="p">(</span>
+<span class="w">    </span><span class="n">policyno</span><span class="o">=</span><span class="nf">paste0</span><span class="p">(</span><span class="s">&quot;0000&quot;</span><span class="p">,</span><span class="w"> </span><span class="m">1</span><span class="o">:</span><span class="m">5</span><span class="p">),</span><span class="w"> </span><span class="n">locationno</span><span class="o">=</span><span class="nf">rep</span><span class="p">(</span><span class="m">1</span><span class="p">,</span><span class="w"> </span><span class="m">5</span><span class="p">),</span><span class="w"> </span>
+<span class="w">    </span><span class="n">prop_tiv_factor</span><span class="o">=</span><span class="nf">c</span><span class="p">(</span><span class="m">1.112</span><span class="p">,</span><span class="w"> </span><span class="m">1.255</span><span class="p">,</span><span class="w"> </span><span class="m">1.3125</span><span class="p">,</span><span class="w"> </span><span class="m">1.075</span><span class="p">,</span><span class="w"> </span><span class="m">1.3125</span><span class="p">),</span>
+<span class="w">    </span><span class="n">bi_occupancy_factor</span><span class="o">=</span><span class="nf">c</span><span class="p">(</span><span class="m">1.015</span><span class="p">,</span><span class="w"> </span><span class="m">1.0675</span><span class="p">,</span><span class="w"> </span><span class="m">1.0925</span><span class="p">,</span><span class="w"> </span><span class="m">1.0675</span><span class="p">,</span><span class="w"> </span><span class="m">1.0475</span><span class="p">),</span>
+<span class="w">    </span><span class="n">prop_age_bld_factor</span><span class="o">=</span><span class="nf">c</span><span class="p">(</span><span class="m">1.173</span><span class="p">,</span><span class="w"> </span><span class="m">1.21235</span><span class="p">,</span><span class="w"> </span><span class="m">1.0935</span><span class="p">,</span><span class="w"> </span><span class="m">1.2815</span><span class="p">,</span><span class="w"> </span><span class="m">1.1115</span><span class="p">),</span>
+<span class="w">    </span><span class="n">prop_deductible_factor</span><span class="o">=</span><span class="nf">c</span><span class="p">(</span><span class="m">1.025</span><span class="p">,</span><span class="w"> </span><span class="m">1.025</span><span class="p">,</span><span class="w"> </span><span class="m">1.755</span><span class="p">,</span><span class="w"> </span><span class="m">1.025</span><span class="p">,</span><span class="w"> </span><span class="m">1.1665</span><span class="p">),</span>
+<span class="w">    </span><span class="n">stringsAsFactors</span><span class="o">=</span><span class="kc">FALSE</span>
+<span class="w">    </span><span class="p">)</span>
+</code></pre></div>
+
+<p>We could continue as before, updating <code>prop_factor</code> to include <code>prop_deductible_factor</code> in the product. However, 
+this approach is not scalable, and each time you go into the code to make changes, you increase the likelihood of 
+introducing errors. We need a more general solution to the problem, specifically a method which allows us to perform 
+an operation on some logical grouping of columns, where the exact number (of columns) may not be known until the 
+moment of&nbsp;execution. </p>
+<h2>Using <code>Reduce</code> and <code>%like%</code></h2>
+<p>The <code>Reduce</code> function successively applies a function to the elements of an object from left to right or right to left, 
+respectively. The simplest example is using <code>Reduce</code> in place of <code>sum</code>:</p>
+<div class="highlight"><pre><span></span><code><span class="o">&gt;</span><span class="w"> </span><span class="nf">Reduce</span><span class="p">(</span><span class="n">`+`</span><span class="p">,</span><span class="w"> </span><span class="nf">c</span><span class="p">(</span><span class="m">1</span><span class="p">,</span><span class="w"> </span><span class="m">2</span><span class="p">,</span><span class="w"> </span><span class="m">3</span><span class="p">,</span><span class="w"> </span><span class="m">4</span><span class="p">,</span><span class="w"> </span><span class="m">5</span><span class="p">))</span>
+<span class="p">[</span><span class="m">15</span><span class="p">]</span>
+</code></pre></div>
+
+<p>We can also replicate <code>prod</code></p>
+<div class="highlight"><pre><span></span><code><span class="o">&gt;</span><span class="w"> </span><span class="nf">Reduce</span><span class="p">(</span><span class="n">`*`</span><span class="p">,</span><span class="w"> </span><span class="nf">c</span><span class="p">(</span><span class="m">1</span><span class="p">,</span><span class="w"> </span><span class="m">2</span><span class="p">,</span><span class="w"> </span><span class="m">3</span><span class="p">,</span><span class="w"> </span><span class="m">4</span><span class="p">,</span><span class="w"> </span><span class="m">5</span><span class="p">))</span>
+<span class="p">[</span><span class="m">1</span><span class="p">]</span><span class="w"> </span><span class="m">120</span>
+</code></pre></div>
+
+<p><code>Reduce</code>  is capable of working with more complex data structures as&nbsp;well. </p>
+<p>The <code>%like%</code> function comes from data.table, and works similar to <span class="caps">SQL</span>&#8217;s <code>LIKE</code> operator. It is essentially shorthand for 
+a regular expression pattern matching subroutine, which returns a <span class="caps">TRUE</span>/<span class="caps">FALSE</span> based on whether or not the target matches 
+the pattern. To demonstrate, we identify which month names end in <code>y</code>:</p>
+<div class="highlight"><pre><span></span><code><span class="o">&gt;</span><span class="w"> </span><span class="n">month.name</span><span class="w"> </span><span class="o">%like%</span><span class="w"> </span><span class="s">&quot;y$&quot;</span>
+<span class="p">[</span><span class="m">1</span><span class="p">]</span><span class="w">  </span><span class="kc">TRUE</span><span class="w">  </span><span class="kc">TRUE</span><span class="w"> </span><span class="kc">FALSE</span><span class="w"> </span><span class="kc">FALSE</span><span class="w">  </span><span class="kc">TRUE</span><span class="w"> </span><span class="kc">FALSE</span><span class="w">  </span><span class="kc">TRUE</span><span class="w"> </span><span class="kc">FALSE</span><span class="w"> </span><span class="kc">FALSE</span><span class="w"> </span><span class="kc">FALSE</span><span class="w"> </span><span class="kc">FALSE</span><span class="w"> </span><span class="kc">FALSE</span>
+</code></pre></div>
+
+<p>To return the actual month names ending in <code>y</code>, use the previous expression as a&nbsp;mask:</p>
+<div class="highlight"><pre><span></span><code><span class="o">&gt;</span><span class="w"> </span><span class="n">month.name</span><span class="p">[</span><span class="n">month.name</span><span class="w"> </span><span class="o">%like%</span><span class="w"> </span><span class="s">&quot;y$&quot;</span><span class="p">]</span>
+<span class="p">[</span><span class="m">1</span><span class="p">]</span><span class="w"> </span><span class="s">&quot;January&quot;</span><span class="w">  </span><span class="s">&quot;February&quot;</span><span class="w"> </span><span class="s">&quot;May&quot;</span><span class="w">      </span><span class="s">&quot;July&quot;</span>
+</code></pre></div>
+
+<p>Note that in regular expression parlance, <code>$</code> means to match <code>y</code> only when it occurs at the end of the string. Similarly, 
+<code>^</code> indicates the match must occur at the beginning of the string. In addition, <code>.+</code>  matches one or more characters, which 
+can be letters, numbers, punctuation or whitespace. We can leverage <code>Reduce</code> and <code>%like%</code> within the context of data.table 
+to take the product of a potentially variable number of factor columns. Using our latest version of <span class="caps">DF</span> with 
+3 <code>prop_*_factor</code> columns, we&nbsp;have:</p>
+<div class="highlight"><pre><span></span><code><span class="n">DF</span><span class="p">[,</span><span class="n">prop_factor</span><span class="o">:=</span>
+<span class="w">    </span><span class="nf">Reduce</span><span class="p">(</span><span class="n">`*`</span><span class="p">,</span><span class="w"> </span><span class="n">.SD</span><span class="p">),</span><span class="w"> </span><span class="n">.SDcols</span><span class="o">=</span><span class="nf">names</span><span class="p">(</span><span class="n">DF</span><span class="p">)[</span><span class="nf">names</span><span class="p">(</span><span class="n">DF</span><span class="p">)</span><span class="w"> </span><span class="o">%like%</span><span class="w"> </span><span class="s">&quot;^prop.+factor$&quot;</span><span class="p">]</span>
+<span class="w">    </span><span class="p">]</span>
+</code></pre></div>
+
+<p>To break this down a bit, note that the value assigned to <code>.SDcols</code> is doing nothing more than filtering to only those 
+columns starting with <code>prop</code> and ending with <code>factor</code>. We can see this by running the expression in&nbsp;isolation:</p>
+<div class="highlight"><pre><span></span><code><span class="o">&gt;</span><span class="w"> </span><span class="nf">names</span><span class="p">(</span><span class="n">DF</span><span class="p">)[</span><span class="nf">names</span><span class="p">(</span><span class="n">DF</span><span class="p">)</span><span class="w"> </span><span class="o">%like%</span><span class="w"> </span><span class="s">&quot;^prop.+factor$&quot;</span>
+<span class="p">[</span><span class="m">1</span><span class="p">]</span><span class="w"> </span><span class="s">&quot;prop_tiv_factor&quot;</span><span class="w">        </span><span class="s">&quot;prop_age_bld_factor&quot;</span><span class="w">    </span><span class="s">&quot;prop_deductible_factor&quot;</span>
+</code></pre></div>
+
+<p><code>.SD</code> is one of data.table&#8217;s <em>special symbols</em>, which serve as shortcuts for frequently used operations.
+In this particular case, <code>.SD</code> is a stand-in for the columns we&#8217;re interested in taking the product of,
+and <code>.SDcols</code> represents the names of the columns over which the operation is to be&nbsp;applied.</p>
+<p>In data.table, <code>:=</code> represents the &#8220;assignment-by-reference&#8221; operator. Notice that when a column is defined via <code>:=</code>, the 
+update is made by reference, so it isn&#8217;t necessary to re-assign the column name to the table as would typically be 
+necessary when working with standard data.frame&nbsp;objects. </p>
+<p>Does our solution generalize to any number of columns? Let&#8217;s add a few more factors and test it&nbsp;out:</p>
+<div class="highlight"><pre><span></span><code><span class="n">DF</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">data.table</span><span class="p">(</span>
+<span class="w">    </span><span class="n">policyno</span><span class="o">=</span><span class="nf">paste0</span><span class="p">(</span><span class="s">&quot;0000&quot;</span><span class="p">,</span><span class="w"> </span><span class="m">1</span><span class="o">:</span><span class="m">5</span><span class="p">),</span><span class="w"> </span><span class="n">locationno</span><span class="o">=</span><span class="nf">rep</span><span class="p">(</span><span class="m">1</span><span class="p">,</span><span class="w"> </span><span class="m">5</span><span class="p">),</span><span class="w"> </span>
+<span class="w">    </span><span class="n">prop_tiv_factor</span><span class="o">=</span><span class="nf">c</span><span class="p">(</span><span class="m">1.112</span><span class="p">,</span><span class="w"> </span><span class="m">1.255</span><span class="p">,</span><span class="w"> </span><span class="m">1.3125</span><span class="p">,</span><span class="w"> </span><span class="m">1.075</span><span class="p">,</span><span class="w"> </span><span class="m">1.3125</span><span class="p">),</span>
+<span class="w">    </span><span class="n">bi_occupancy_factor</span><span class="o">=</span><span class="nf">c</span><span class="p">(</span><span class="m">1.015</span><span class="p">,</span><span class="w"> </span><span class="m">1.0675</span><span class="p">,</span><span class="w"> </span><span class="m">1.0925</span><span class="p">,</span><span class="w"> </span><span class="m">1.0675</span><span class="p">,</span><span class="w"> </span><span class="m">1.0475</span><span class="p">),</span>
+<span class="w">    </span><span class="n">prop_age_bld_factor</span><span class="o">=</span><span class="nf">c</span><span class="p">(</span><span class="m">1.173</span><span class="p">,</span><span class="w"> </span><span class="m">1.21235</span><span class="p">,</span><span class="w"> </span><span class="m">1.0935</span><span class="p">,</span><span class="w"> </span><span class="m">1.2815</span><span class="p">,</span><span class="w"> </span><span class="m">1.1115</span><span class="p">),</span>
+<span class="w">    </span><span class="n">prop_deductible_factor</span><span class="o">=</span><span class="nf">c</span><span class="p">(</span><span class="m">1.025</span><span class="p">,</span><span class="w"> </span><span class="m">1.025</span><span class="p">,</span><span class="w"> </span><span class="m">1.755</span><span class="p">,</span><span class="w"> </span><span class="m">1.025</span><span class="p">,</span><span class="w"> </span><span class="m">1.1665</span><span class="p">),</span>
+<span class="w">    </span><span class="n">prop_nbr_stories_factor</span><span class="o">=</span><span class="nf">c</span><span class="p">(</span><span class="m">1.015</span><span class="p">,</span><span class="w"> </span><span class="m">1.015</span><span class="p">,</span><span class="w"> </span><span class="m">1.015</span><span class="p">,</span><span class="w"> </span><span class="m">1.015</span><span class="p">,</span><span class="w"> </span><span class="m">1.1175</span><span class="p">),</span>
+<span class="w">    </span><span class="n">prop_age_roof_factor</span><span class="o">=</span><span class="nf">c</span><span class="p">(</span><span class="m">1.033</span><span class="p">,</span><span class="w"> </span><span class="m">1.0373</span><span class="p">,</span><span class="w"> </span><span class="m">1.3573</span><span class="p">,</span><span class="w"> </span><span class="m">1.033</span><span class="p">,</span><span class="w"> </span><span class="m">1.0373</span><span class="p">),</span>
+<span class="w">    </span><span class="n">bi_protect_class_factor</span><span class="o">=</span><span class="nf">c</span><span class="p">(</span><span class="m">1</span><span class="n">.</span><span class="p">,</span><span class="w"> </span><span class="m">1</span><span class="n">.</span><span class="p">,</span><span class="w"> </span><span class="m">1</span><span class="n">.</span><span class="p">,</span><span class="w"> </span><span class="m">1.25</span><span class="p">,</span><span class="w"> </span><span class="m">1.25</span><span class="p">),</span>
+<span class="w">    </span><span class="n">prop_construction_factor</span><span class="o">=</span><span class="nf">c</span><span class="p">(</span><span class="m">1.0235</span><span class="p">,</span><span class="w"> </span><span class="m">1.0744</span><span class="p">,</span><span class="w"> </span><span class="m">1.1985</span><span class="p">,</span><span class="w"> </span><span class="m">1.0235</span><span class="p">,</span><span class="w"> </span><span class="m">1.0744</span><span class="p">),</span>
+<span class="w">    </span><span class="n">stringsAsFactors</span><span class="o">=</span><span class="kc">FALSE</span>
+<span class="w">    </span><span class="p">)</span>
+</code></pre></div>
+
+<p>Which gives&nbsp;us</p>
+<div class="highlight"><pre><span></span><code><span class="n">policyno</span><span class="w"> </span><span class="n">locationno</span><span class="w"> </span><span class="n">prop_tiv_factor</span><span class="w"> </span><span class="n">bi_occupancy_factor</span><span class="w"> </span><span class="n">prop_age_bld_factor</span><span class="w"> </span><span class="n">prop_deductible_factor</span><span class="w"> </span><span class="n">prop_nbr_stories_factor</span>
+<span class="mi">1</span><span class="p">:</span><span class="w">    </span><span class="mi">00001</span><span class="w">          </span><span class="mi">1</span><span class="w">          </span><span class="mf">1.1120</span><span class="w">              </span><span class="mf">1.0150</span><span class="w">             </span><span class="mf">1.17300</span><span class="w">                 </span><span class="mf">1.0250</span><span class="w">                  </span><span class="mf">1.0150</span>
+<span class="mi">2</span><span class="p">:</span><span class="w">    </span><span class="mi">00002</span><span class="w">          </span><span class="mi">1</span><span class="w">          </span><span class="mf">1.2550</span><span class="w">              </span><span class="mf">1.0675</span><span class="w">             </span><span class="mf">1.21235</span><span class="w">                 </span><span class="mf">1.0250</span><span class="w">                  </span><span class="mf">1.0150</span>
+<span class="mi">3</span><span class="p">:</span><span class="w">    </span><span class="mi">00003</span><span class="w">          </span><span class="mi">1</span><span class="w">          </span><span class="mf">1.3125</span><span class="w">              </span><span class="mf">1.0925</span><span class="w">             </span><span class="mf">1.09350</span><span class="w">                 </span><span class="mf">1.7550</span><span class="w">                  </span><span class="mf">1.0150</span>
+<span class="mi">4</span><span class="p">:</span><span class="w">    </span><span class="mi">00004</span><span class="w">          </span><span class="mi">1</span><span class="w">          </span><span class="mf">1.0750</span><span class="w">              </span><span class="mf">1.0675</span><span class="w">             </span><span class="mf">1.28150</span><span class="w">                 </span><span class="mf">1.0250</span><span class="w">                  </span><span class="mf">1.0150</span>
+<span class="mi">5</span><span class="p">:</span><span class="w">    </span><span class="mi">00005</span><span class="w">          </span><span class="mi">1</span><span class="w">          </span><span class="mf">1.3125</span><span class="w">              </span><span class="mf">1.0475</span><span class="w">             </span><span class="mf">1.11150</span><span class="w">                 </span><span class="mf">1.1665</span><span class="w">                  </span><span class="mf">1.1175</span>
+<span class="w">   </span><span class="n">prop_age_roof_factor</span><span class="w"> </span><span class="n">bi_protect_class_factor</span><span class="w"> </span><span class="n">prop_construction_factor</span>
+<span class="mi">1</span><span class="p">:</span><span class="w">               </span><span class="mf">1.0330</span><span class="w">                    </span><span class="mf">1.00</span><span class="w">                   </span><span class="mf">1.0235</span>
+<span class="mi">2</span><span class="p">:</span><span class="w">               </span><span class="mf">1.0373</span><span class="w">                    </span><span class="mf">1.00</span><span class="w">                   </span><span class="mf">1.0744</span>
+<span class="mi">3</span><span class="p">:</span><span class="w">               </span><span class="mf">1.3573</span><span class="w">                    </span><span class="mf">1.00</span><span class="w">                   </span><span class="mf">1.1985</span>
+<span class="mi">4</span><span class="p">:</span><span class="w">               </span><span class="mf">1.0330</span><span class="w">                    </span><span class="mf">1.25</span><span class="w">                   </span><span class="mf">1.0235</span>
+<span class="mi">5</span><span class="p">:</span><span class="w">               </span><span class="mf">1.0373</span><span class="w">                    </span><span class="mf">1.25</span><span class="w">                   </span><span class="mf">1.0744</span>
+</code></pre></div>
+
+<p>Our logic should return the product of prop_tiv_factor, prop_age_bld_factor, prop_deductible_factor, 
+prop_nbr_stories_factor, prop_age_roof_factor and prop_construction_factor without modifying our earlier implementation. 
+Let&#8217;s compare the results of our dynamic, general expression vs. explicitly specifying the column names to&nbsp;multiply:</p>
+<div class="highlight"><pre><span></span><code><span class="c1"># Compare results from explicit and implicit column multiplication.</span>
+<span class="n">DF</span><span class="p">[,</span><span class="n">prop_factor</span><span class="o">:=</span>
+<span class="w">    </span><span class="nf">Reduce</span><span class="p">(</span><span class="n">`*`</span><span class="p">,</span><span class="w"> </span><span class="n">.SD</span><span class="p">),</span><span class="w"> </span><span class="n">.SDcols</span><span class="o">=</span><span class="nf">names</span><span class="p">(</span><span class="n">DF</span><span class="p">)[</span><span class="nf">names</span><span class="p">(</span><span class="n">DF</span><span class="p">)</span><span class="w"> </span><span class="o">%like%</span><span class="w"> </span><span class="s">&quot;^prop.+factor$&quot;</span><span class="p">]</span>
+<span class="w">    </span><span class="p">]</span>
+<span class="n">prop_factor1</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">DF</span><span class="p">[,</span><span class="n">prop_factor</span><span class="p">]</span>
+
+<span class="c1"># Compute product specifying  prop-prefixed columns explicitly.</span>
+<span class="n">prop_factor2</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">DF</span><span class="o">$</span><span class="n">prop_tiv_factor</span><span class="w"> </span><span class="n">DF</span><span class="o">$</span><span class="n">prop_age_bld_factor</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">DF</span><span class="o">$</span><span class="n">prop_deductible_factor</span><span class="w"> </span><span class="o">*</span><span class="w"> </span>
+<span class="n">DF</span><span class="o">$</span><span class="n">prop_nbr_stories_factor</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">DF</span><span class="o">$</span><span class="n">prop_age_roof_factor</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">DF</span><span class="o">$</span><span class="n">prop_construction_factor</span>
+</code></pre></div>
+
+<p>Comparing results&nbsp;gives</p>
+<div class="highlight"><pre><span></span><code><span class="o">&gt;</span><span class="w"> </span><span class="n">prop_factor1</span>
+<span class="p">[</span><span class="m">1</span><span class="p">]</span><span class="w"> </span><span class="m">1.434765</span><span class="w"> </span><span class="m">1.764136</span><span class="w"> </span><span class="m">4.158868</span><span class="w"> </span><span class="m">1.515323</span><span class="w"> </span><span class="m">2.119393</span>
+<span class="o">&gt;</span><span class="w"> </span><span class="n">prop_factor2</span>
+<span class="p">[</span><span class="m">1</span><span class="p">]</span><span class="w"> </span><span class="m">1.434765</span><span class="w"> </span><span class="m">1.764136</span><span class="w"> </span><span class="m">4.158868</span><span class="w"> </span><span class="m">1.515323</span><span class="w"> </span><span class="m">2.119393</span>
+</code></pre></div>
+            </div>
+            <!-- /.entry-content -->
+        </article>
+    </section>
+
+        </div>
+        <div class="col-sm-3" id="sidebar">
+            <aside>
+<div id="aboutme">
+        <p>
+            <img width="100%" class="img-thumbnail" src="./images/JDTGOOG.JPG"/>
+        </p>
+    <p>
+      <strong>About James D. Triveri</strong><br/>
+        Data Scientist interested in ML/DL, automation and scientific computing.
+    </p>
+</div><!-- Sidebar -->
+<section class="well well-sm">
+  <ul class="list-group list-group-flush">
+
+<!-- Sidebar/Links -->
+<li class="list-group-item">
+  <h4><i class="fa fa-external-link-square fa-lg"></i><span class="icon-label">Links</span></h4>
+  <ul class="list-group" id="links">
+    <li class="list-group-item">
+      <a href="http://python.org/" target="_blank">Python.org</a>
+    </li>
+    <li class="list-group-item">
+      <a href="https://docs.python.org/3/py-modindex.html" target="_blank">The Python Module Index</a>
+    </li>
+    <li class="list-group-item">
+      <a href="https://scikit-learn.org/stable/documentation.html" target="_blank">Scikit-Learn</a>
+    </li>
+    <li class="list-group-item">
+      <a href="https://www.scipy.org/docs.html" target="_blank">Scipy Docs</a>
+    </li>
+    <li class="list-group-item">
+      <a href="https://openai.com/" target="_blank">OpenAI</a>
+    </li>
+  </ul>
+</li>
+<!-- End Sidebar/Links -->
+
+<!-- Sidebar/Images -->
+<li class="list-group-item">
+  <ul class="list-group" id="links">
+    <img width="100%" class="img-thumbnail" src="images/Sidebar/sidebarA.jpg"/>
+    <img width="100%" class="img-thumbnail" src="images/Sidebar/sidebarB.png"/>
+    <img width="100%" class="img-thumbnail" src="images/Sidebar/sidebarC.jpg"/>
+    <img width="100%" class="img-thumbnail" src="images/Sidebar/sidebarD.jpg"/>
+  </ul>
+</li>
+<!-- End Sidebar/Images -->
+  </ul>
+</section>
+<!-- End Sidebar -->            </aside>
+        </div>
+    </div>
+</div>
+<!-- End Content Container -->
+
+<footer>
+   <div class="container-fluid">
+      <hr>
+      <div class="row">
+         <div class="col-xs-10">&copy; 2023 James D. Triveri
+            &middot; Powered by <a href="https://github.com/getpelican/pelican-themes/tree/master/pelican-bootstrap3" target="_blank">pelican-bootstrap3</a>,
+            <a href="http://docs.getpelican.com/" target="_blank">Pelican</a>,
+            <a href="http://getbootstrap.com" target="_blank">Bootstrap</a>         </div>
+         <div class="col-xs-2"><p class="pull-right"><i class="fa fa-arrow-up"></i> <a href="#">Back to top</a></p></div>
+      </div>
+   </div>
+</footer>
+<script src="./theme/js/jquery.min.js"></script>
+
+<!-- Include all compiled plugins (below), or include individual files as needed -->
+<script src="./theme/js/bootstrap.min.js"></script>
+
+<!-- Enable responsive features in IE8 with Respond.js (https://github.com/scottjehl/Respond) -->
+<script src="./theme/js/respond.min.js"></script>
+
+
+    <script src="./theme/js/bodypadding.js"></script>
+
+
+</body>
+</html>

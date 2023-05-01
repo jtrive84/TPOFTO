@@ -1,7 +1,13 @@
 pelican-themes
 pelican-themes/*
 ./pelican-themes
+pelican-plugins
+pelican-plugins/*
+./pelican-plugins
 Links_from_Drive.txt
 Investigate.txt
 notebooks.lnk
-
+__pycache__
+./__pycache__
+__pycache__/*
+ablog.bat
