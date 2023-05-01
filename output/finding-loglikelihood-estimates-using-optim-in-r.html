@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="en" prefix="og: http://ogp.me/ns# fb: https://www.facebook.com/2008/fbml">
+<head>
+    <title>Finding LogLikelihood Estimates using optim in R - The Pleasure of Finding Things Out</title>
+    <!-- Using the latest rendering mode for IE -->
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+
+
+<link rel="canonical" href="./finding-loglikelihood-estimates-using-optim-in-r.html">
+
+        <meta name="author" content="James D. Triveri" />
+        <meta name="keywords" content="Statistical Modeling,R" />
+        <meta name="description" content="Finding logLikelihood estimates using optim in R" />
+
+        <meta property="og:site_name" content="The Pleasure of Finding Things Out" />
+        <meta property="og:type" content="article"/>
+        <meta property="og:title" content="Finding LogLikelihood Estimates using optim in R"/>
+        <meta property="og:url" content="./finding-loglikelihood-estimates-using-optim-in-r.html"/>
+        <meta property="og:description" content="Finding logLikelihood estimates using optim in R"/>
+        <meta property="article:published_time" content="2023-04-23" />
+            <meta property="article:section" content="Statistical Modeling" />
+            <meta property="article:tag" content="Statistical Modeling" />
+            <meta property="article:tag" content="R" />
+            <meta property="article:author" content="James D. Triveri" />
+
+
+
+    <!-- Bootstrap -->
+        <link rel="stylesheet" href="./theme/css/bootstrap.Yeti.min.css" type="text/css"/>
+    <link href="./theme/css/font-awesome.min.css" rel="stylesheet">
+
+    <link href="./theme/css/pygments/default.css" rel="stylesheet">
+        <link href="./theme/css/typogrify.css" rel="stylesheet">
+    <link rel="stylesheet" href="./theme/css/style.css" type="text/css"/>
+        <link href="./static/css/custom.css" rel="stylesheet">
+
+
+
+
+</head>
+<body>
+
+<div class="navbar navbar-inverse navbar-fixed-top" role="navigation">
+    <div class="container-fluid">
+        <div class="navbar-header">
+            <button type="button" class="navbar-toggle" data-toggle="collapse" data-target=".navbar-ex1-collapse">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            <a href="./" class="navbar-brand">
+The Pleasure of Finding Things Out            </a>
+        </div>
+        <div class="collapse navbar-collapse navbar-ex1-collapse">
+            <ul class="nav navbar-nav">
+                         <li><a href="./pages/about-me.html">
+                             About&nbsp;Me
+                          </a></li>
+                        <li >
+                            <a href="./category/machine-learning.html">Machine learning</a>
+                        </li>
+                        <li >
+                            <a href="./category/python.html">Python</a>
+                        </li>
+                        <li >
+                            <a href="./category/r.html">R</a>
+                        </li>
+                        <li class="active">
+                            <a href="./category/statistical-modeling.html">Statistical modeling</a>
+                        </li>
+            </ul>
+            <ul class="nav navbar-nav navbar-right">
+            </ul>
+        </div>
+        <!-- /.navbar-collapse -->
+    </div>
+</div> <!-- /.navbar -->
+
+<!-- Banner -->
+<!-- End Banner -->
+
+<!-- Content Container -->
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-sm-9">
+    <section id="content">
+        <article>
+            <header class="page-header">
+                <h1>
+                    <a href="./finding-loglikelihood-estimates-using-optim-in-r.html"
+                       rel="bookmark"
+                       title="Permalink to Finding LogLikelihood Estimates using optim in R">
+                        Finding LogLikelihood Estimates using optim in&nbsp;R
+                    </a>
+                </h1>
+            </header>
+            <div class="entry-content">
+                <div class="panel">
+                    <div class="panel-body">
+<footer class="post-info">
+    <span class="label label-default">Date</span>
+    <span class="published">
+        <i class="fa fa-calendar"></i><time datetime="2023-04-23T00:00:00-05:00"> 2023-04-23</time>
+    </span>
+
+
+
+
+
+<span class="label label-default">Tags</span>
+	<a href="./tag/statistical-modeling.html">Statistical Modeling</a>
+        /
+	<a href="./tag/r.html">R</a>
+    
+</footer><!-- /.post-info -->                    </div>
+                </div>
+                <p>There are many R packages available to assist with finding maximum likelihood estimates based on a given set of data 
+(for example, <a href="https://cran.r-project.org/web/packages/fitdistrplus/fitdistrplus.pdf">fitdistrplus</a>), but implementing 
+a routine to find MLEs is a great way to learn how to use the <code>optim</code> subroutine. In the example that follows, we 
+demonstrate how to find the shape and scale parameters for a Gamma distribution using synthetically-generated data via 
+maximum&nbsp;likelihood.</p>
+<h2>Setup</h2>
+<p>The available parameters and call signature for <code>optim</code> are given&nbsp;below:</p>
+<div class="highlight"><pre><span></span><code><span class="n">optim</span><span class="p">(</span><span class="n">par</span><span class="p">,</span><span class="w"> </span><span class="n">fn</span><span class="p">,</span><span class="w"> </span><span class="n">gr</span><span class="o">=</span><span class="n">NULL</span><span class="p">,</span><span class="w"> </span><span class="o">...</span><span class="p">,</span>
+<span class="w">      </span><span class="n">method</span><span class="o">=</span><span class="n">c</span><span class="p">(</span><span class="s2">&quot;Nelder-Mead&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;BFGS&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;CG&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;L-BFGS-B&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;SANN&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;Brent&quot;</span><span class="p">),</span>
+<span class="w">      </span><span class="n">lower</span><span class="o">=-</span><span class="n">Inf</span><span class="p">,</span><span class="w"> </span><span class="n">upper</span><span class="o">=</span><span class="n">Inf</span><span class="p">,</span>
+<span class="w">      </span><span class="n">control</span><span class="o">=</span><span class="n">list</span><span class="p">(),</span><span class="w"> </span><span class="n">hessian</span><span class="o">=</span><span class="n">FALSE</span><span class="p">)</span>
+
+<span class="n">par</span><span class="w"> </span>
+<span class="n">Initial</span><span class="w"> </span><span class="n">values</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">the</span><span class="w"> </span><span class="n">parameters</span><span class="w"> </span><span class="n">to</span><span class="w"> </span><span class="n">be</span><span class="w"> </span><span class="n">optimized</span><span class="w"> </span><span class="n">over</span><span class="o">.</span>
+
+<span class="n">fn</span><span class="w">  </span>
+<span class="n">A</span><span class="w"> </span><span class="n">function</span><span class="w"> </span><span class="n">to</span><span class="w"> </span><span class="n">be</span><span class="w"> </span><span class="n">minimized</span><span class="w"> </span><span class="p">(</span><span class="ow">or</span><span class="w"> </span><span class="n">maximized</span><span class="p">),</span><span class="w"> </span><span class="n">with</span><span class="w"> </span><span class="n">first</span><span class="w"> </span><span class="n">argument</span><span class="w"> </span><span class="n">the</span><span class="w"> </span><span class="n">vector</span><span class="w"> </span><span class="n">of</span><span class="w"> </span>
+<span class="n">parameters</span><span class="w"> </span><span class="n">over</span><span class="w"> </span><span class="n">which</span><span class="w"> </span><span class="n">minimization</span><span class="w"> </span><span class="k">is</span><span class="w"> </span><span class="n">to</span><span class="w"> </span><span class="n">take</span><span class="w"> </span><span class="n">place</span><span class="o">.</span><span class="w"> </span><span class="n">It</span><span class="w"> </span><span class="n">should</span><span class="w"> </span><span class="k">return</span><span class="w"> </span><span class="n">a</span><span class="w"> </span><span class="n">scalar</span><span class="w"> </span>
+<span class="n">result</span><span class="o">.</span>
+
+<span class="n">gr</span><span class="w">  </span>
+<span class="n">A</span><span class="w"> </span><span class="n">function</span><span class="w"> </span><span class="n">to</span><span class="w"> </span><span class="k">return</span><span class="w"> </span><span class="n">the</span><span class="w"> </span><span class="n">gradient</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">the</span><span class="w"> </span><span class="s2">&quot;BFGS&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;CG&quot;</span><span class="w"> </span><span class="ow">and</span><span class="w"> </span><span class="s2">&quot;L-BFGS-B&quot;</span><span class="w"> </span><span class="n">methods</span><span class="o">.</span><span class="w"> </span>
+<span class="n">If</span><span class="w"> </span><span class="n">it</span><span class="w"> </span><span class="k">is</span><span class="w"> </span><span class="n">NULL</span><span class="p">,</span><span class="w"> </span><span class="n">a</span><span class="w"> </span><span class="n">finite</span><span class="o">-</span><span class="n">difference</span><span class="w"> </span><span class="n">approximation</span><span class="w"> </span><span class="n">will</span><span class="w"> </span><span class="n">be</span><span class="w"> </span><span class="n">used</span><span class="o">.</span>
+
+<span class="n">For</span><span class="w"> </span><span class="n">the</span><span class="w"> </span><span class="s2">&quot;SANN&quot;</span><span class="w"> </span><span class="n">method</span><span class="w"> </span><span class="n">it</span><span class="w"> </span><span class="n">specifies</span><span class="w"> </span><span class="n">a</span><span class="w"> </span><span class="n">function</span><span class="w"> </span><span class="n">to</span><span class="w"> </span><span class="n">generate</span><span class="w"> </span><span class="n">a</span><span class="w"> </span><span class="n">new</span><span class="w"> </span><span class="n">candidate</span><span class="w"> </span>
+<span class="n">point</span><span class="o">.</span><span class="w"> </span><span class="n">If</span><span class="w"> </span><span class="n">it</span><span class="w"> </span><span class="k">is</span><span class="w"> </span><span class="n">NULL</span><span class="w"> </span><span class="n">a</span><span class="w"> </span><span class="n">default</span><span class="w"> </span><span class="n">Gaussian</span><span class="w"> </span><span class="n">Markov</span><span class="w"> </span><span class="n">kernel</span><span class="w"> </span><span class="k">is</span><span class="w"> </span><span class="n">used</span><span class="o">.</span>
+
+<span class="o">...</span><span class="w"> </span>
+<span class="n">Further</span><span class="w"> </span><span class="n">arguments</span><span class="w"> </span><span class="n">to</span><span class="w"> </span><span class="n">be</span><span class="w"> </span><span class="n">passed</span><span class="w"> </span><span class="n">to</span><span class="w"> </span><span class="n">fn</span><span class="w"> </span><span class="ow">and</span><span class="w"> </span><span class="n">gr</span><span class="o">.</span>
+
+<span class="n">method</span><span class="w">  </span>
+<span class="n">The</span><span class="w"> </span><span class="n">method</span><span class="w"> </span><span class="n">to</span><span class="w"> </span><span class="n">be</span><span class="w"> </span><span class="n">used</span><span class="o">.</span><span class="w"> </span><span class="n">See</span><span class="w"> </span><span class="s1">&#39;Details&#39;</span><span class="o">.</span><span class="w"> </span><span class="n">Can</span><span class="w"> </span><span class="n">be</span><span class="w"> </span><span class="n">abbreviated</span><span class="o">.</span>
+
+<span class="n">lower</span><span class="p">,</span><span class="w"> </span><span class="n">upper</span><span class="w">    </span>
+<span class="n">Bounds</span><span class="w"> </span><span class="n">on</span><span class="w"> </span><span class="n">the</span><span class="w"> </span><span class="n">variables</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">the</span><span class="w"> </span><span class="s2">&quot;L-BFGS-B&quot;</span><span class="w"> </span><span class="n">method</span><span class="p">,</span><span class="w"> </span><span class="ow">or</span><span class="w"> </span><span class="n">bounds</span><span class="w"> </span><span class="ow">in</span><span class="w"> </span><span class="n">which</span><span class="w"> </span><span class="n">to</span><span class="w"> </span><span class="n">search</span><span class="w"> </span>
+<span class="k">for</span><span class="w"> </span><span class="n">method</span><span class="w"> </span><span class="s2">&quot;Brent&quot;</span><span class="o">.</span>
+
+<span class="n">control</span><span class="w"> </span>
+<span class="n">a</span><span class="w"> </span><span class="n">list</span><span class="w"> </span><span class="n">of</span><span class="w"> </span><span class="n">control</span><span class="w"> </span><span class="n">parameters</span><span class="o">.</span><span class="w"> </span><span class="n">See</span><span class="w"> </span><span class="s1">&#39;Details&#39;</span><span class="o">.</span>
+
+<span class="n">hessian</span><span class="w"> </span>
+<span class="n">Logical</span><span class="o">.</span><span class="w"> </span><span class="n">Should</span><span class="w"> </span><span class="n">a</span><span class="w"> </span><span class="n">numerically</span><span class="w"> </span><span class="n">differentiated</span><span class="w"> </span><span class="n">Hessian</span><span class="w"> </span><span class="n">matrix</span><span class="w"> </span><span class="n">be</span><span class="w"> </span><span class="n">returned</span><span class="err">?</span>
+</code></pre></div>
+
+<p>Essentially, we pass <code>optim</code> a function which takes a single vector argument representing the parameters we hope to find 
+(<code>fn</code>) along with a starting point from which the selected optimization routine begins searching (<code>par</code>), with one starting 
+value per&nbsp;parameter. </p>
+<p>The Gamma distribution can be parameterized in a number of ways, but for this demonstration, we use the shape-scale 
+parameterization, with density given&nbsp;by:</p>
+<p>$$
+f(x|\theta, \alpha) = \frac{x^{\alpha-1}e^{-x/\theta}}{\theta^{\alpha} \Gamma(\alpha)},
+\hspace{.50em} x &gt;= 0; \hspace{.50em}\alpha, \theta &gt; 0,&nbsp;$$</p>
+<p>where $\boldsymbol{\alpha}$ represents the shape parameter and $\boldsymbol{\theta}$ the scale parameter. The Gamma 
+distribution has variance in proportion to the mean, which differs from the normal distribution which has constant 
+variance across observations. Specifically, for Gamma distributed random variable $X$, the mean and variance&nbsp;are:</p>
+<p>$$
+E[X] = \alpha \theta \hspace{1.0em} Var[X] =  \alpha \theta^{2}&nbsp;$$</p>
+<p>A useful feature of the Gamma distribution is that it has a constant coefficient of&nbsp;variation:</p>
+<p>$$
+\mathrm{<span class="caps">CV</span>} = \sigma / \mu = \sqrt{\mathrm{Var}[X]} / \mathrm{E}[X] = \sqrt{\alpha \theta^{2}} / \alpha \theta = 1 / \sqrt{\alpha}.&nbsp;$$</p>
+<p>Thus, for any values of $x$ fit to a Gamma distribution with parameters $\theta$ and $\alpha$, the ratio of the standard 
+deviation to the mean will always equate to $1 /&nbsp;\sqrt{\alpha}$. </p>
+<h2>Maximum Likelihood&nbsp;Estimation</h2>
+<p>Maximum likelihood estimation (<span class="caps">MLE</span>) is a technique used to estimate parameters for a candidate model or distributional form. 
+Essentially, <span class="caps">MLE</span> aims to identify which parameter(s) make the observed data most likely, given the specified model. In 
+practice, we do not know the values of the proposed model parameters, but we do know the data. We use the likelihood 
+function to observe how the function changes for different parameter values while holding the data fixed. This can be used 
+to judge which parameter values lead to greater likelihood of the sample&nbsp;occurring. </p>
+<p>The joint density of $n$ independently distributed observations is given&nbsp;by:</p>
+<p>$$
+f(\mathbf{x}|\boldsymbol{\beta}) = \prod_{i=1}^{n} f_{i}(x_{i}|\beta), \hspace{0.5em} 1 \leq i \leq n.&nbsp;$$</p>
+<p>When this expression is interpreted as a function of unknown $\boldsymbol{\beta}$ given known data $x$, 
+we obtain the likelihood&nbsp;function:</p>
+<p>$$
+\mathcal{L}(\mathbf{\beta}|\mathbf{x}) = \prod_{i=1}^{n} f_{i}(x_{i}|\mathbf{\beta}).&nbsp;$$</p>
+<p>Solving the likelihood equation can be difficult. This can be partially alleviated by logging the likelihood expression, 
+which results in an expression for the <em>loglikelihood</em>. When solving the likelihood, it is often necessary to take the 
+derivative of the expression to find the optimum (although not all optimizers are gradient based). It is much more 
+computationally stable and conceptually straightforward to take the derivate of an additive function of independent 
+observations (loglikelihood) as opposed to a multiplicative function of indepentent observations (likelihood).
+The loglikelihood is given&nbsp;by:</p>
+<p>$$
+\mathcal{l}(\mathbf{\beta}|\mathbf{x}) = \sum_{i=1}^{n} \mathrm{Ln}(f_{i}(x_{i}|\mathbf{\beta})), \hspace{0.5em} 1 \leq i \leq n.&nbsp;$$</p>
+<p>Referring back to the shape-scale parameterized Gamma distribution, the joint density can be represented&nbsp;as</p>
+<p>$$
+f(x|\theta, \alpha) = \prod_{i=1}^{n}\frac{x_{i}^{\alpha-1}e^{-x_{i}/\theta}}{\theta^{\alpha} \Gamma(\alpha)},
+\hspace{.50em} x_{i} &gt;= 0; \hspace{.50em}\alpha, \theta &gt; 0,&nbsp;$$</p>
+<p>Taking the natural log of the joint density results in the loglikelihood for our proposed distributional&nbsp;form:</p>
+<p>$$
+\mathcal{l}(\mathbf{\theta, \alpha}|\mathbf{x}) = \prod_{i=1}^{n}\mathrm{Ln}\Big(\frac{x_{i}^{\alpha-1}e^{-x_{i}/\theta}}{\theta^{\alpha} \Gamma(\alpha)}\Big)&nbsp;$$</p>
+<p>Expanding the loglikelihood and focusing on a single observation $x_{i}$&nbsp;yields:</p>
+<p>$$
+\mathrm{Ln}(x_{i}^{\alpha -1}) + \mathrm{Ln}(e^{-x_{i} / \theta}) - \mathrm{Ln}(\theta^{\alpha}) - \mathrm{Ln}(\Gamma(\alpha)).&nbsp;$$</p>
+<p>Now considering all observations, after a bit of rearranging and simplification we&nbsp;obtain</p>
+<p>$$
+\mathcal{l}(\mathbf{\theta, \alpha}|\mathbf{x}) = (\alpha -1)\sum_{i=1}^{n}\mathrm{Ln}(x_{i}) - \theta^{-1}\sum_{i=1}^{n}x_{i} - n \alpha \mathrm{Ln}(\theta) -n\mathrm{Ln}(\Gamma(\alpha)).&nbsp;$$</p>
+<p>Next, the the partial derivatives w.r.t. $\theta$ and $\alpha$ would be obtained and set equal to zero in order to find the 
+solutions directly or in an iterative fashion. However, for use with R&#8217;s <code>optim</code>, we only need to go as far as producing an 
+expression for the joint loglikelihood over the set of&nbsp;observations. </p>
+<h2>Implementation</h2>
+<p>The function wthat we&#8217;ll eventually pass along to <code>optim</code> will be implemented as a <em>closure</em>. A closure is a function which 
+returns another function. A trivial example would be one in which an outer function wraps and inner function that computes 
+the product of two numbers, which is then raised to a power specified as an argument accepted by the outer function.
+You&#8217;d be correct to think this problem could just as easily be solved as a 3-parameter function. However, 
+you&#8217;d be required to pass the 3rd argument representing the degree to which the product should be raised every time the 
+function is called. An advantage of closures is that any parameters associated with the outer function are global variables 
+from the perspective of the inner function, which is useful in many&nbsp;scenarios. </p>
+<p>In what follows, we implement a closure as described in the previous paragraph: The inner function takes two numeric 
+values, <code>a</code> and <code>b</code>, and returns the product <code>a * b</code>. The outer function takes a single numeric argument, <code>pow</code>, which 
+determines the degree to which the product should be raised. The final value returned by the function will 
+be <code>(a * b)^pow</code>:</p>
+<div class="highlight"><pre><span></span><code><span class="c1"># Closure in which a power is specified upon initialization. Then, for each subsequent</span>
+<span class="c1"># invocation, the product a * b is raised to pow. </span>
+<span class="n">prodPow</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">function</span><span class="p">(</span><span class="n">pow</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nf">function</span><span class="p">(</span><span class="n">a</span><span class="p">,</span><span class="w"> </span><span class="n">b</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nf">return</span><span class="p">((</span><span class="n">a</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">b</span><span class="p">)</span><span class="o">^</span><span class="n">pow</span><span class="p">)</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div>
+
+<p>Next, to initialize the closure, we call <code>prodPow</code>, but only pass the argument for <code>pow</code>. We will inspect the result and 
+show that it is a&nbsp;function:</p>
+<div class="highlight"><pre><span></span><code><span class="o">&gt;</span><span class="w"> </span><span class="n">func</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">proPow</span><span class="p">(</span><span class="n">pow</span><span class="o">=</span><span class="m">3</span><span class="p">)</span>
+<span class="o">&gt;</span><span class="w"> </span><span class="nf">class</span><span class="p">(</span><span class="n">func</span><span class="p">)</span>
+<span class="p">[</span><span class="m">1</span><span class="p">]</span><span class="w"> </span><span class="s">&quot;function&quot;</span>
+
+<span class="o">&gt;</span><span class="w"> </span><span class="nf">names</span><span class="p">(</span><span class="nf">formals</span><span class="p">(</span><span class="n">func</span><span class="p">))</span>
+<span class="p">[</span><span class="m">1</span><span class="p">]</span><span class="w"> </span><span class="s">&quot;a&quot;</span><span class="w"> </span><span class="s">&quot;b&quot;</span>
+</code></pre></div>
+
+<p>The object bound to <code>func</code> is a function with two arguments, <code>a</code> and <code>b</code>. If we invoke <code>func</code> by specifying arguments for 
+<code>a</code> and <code>b</code>, we expect a numeric value to be returned representing the product raised to the 3rd&nbsp;power:</p>
+<div class="highlight"><pre><span></span><code><span class="o">&gt;</span><span class="w"> </span><span class="nf">func</span><span class="p">(</span><span class="m">2</span><span class="p">,</span><span class="w"> </span><span class="m">4</span><span class="p">)</span>
+<span class="p">[</span><span class="m">1</span><span class="p">]</span><span class="w"> </span><span class="m">512</span>
+
+<span class="o">&gt;</span><span class="w"> </span><span class="nf">func</span><span class="p">(</span><span class="m">7</span><span class="p">,</span><span class="w"> </span><span class="m">3</span><span class="p">)</span>
+<span class="p">[</span><span class="m">1</span><span class="p">]</span><span class="w"> </span><span class="m">9261</span>
+</code></pre></div>
+
+<h2>Gamma LogLikelihood&nbsp;Closure</h2>
+<p>We next implement the Gamma loglikelihood as a closure. The reason for doing this has to do with the way in which <code>optim</code> 
+works. The arguments associated with the function passed to <code>optim</code> should consist of a vector of the parameters of 
+interest, which in our case is a vector representing $(\alpha, \theta)$. By implementing the function as a closure, we can 
+reference the set of observations (<code>vals</code>) from the scope of the inner function without having to pass the data as an 
+argument for the function being optimized. This is very useful, since, if you recall from our final expression for the 
+loglikelihood, it is necessary to compute $\sum_{i=1}^{n}\mathrm{Ln}(x_{i})$ and $\sum_{i=1}^{n}x_{i}$ at each evaluation. 
+It is far more efficient to compute these quantities once then reference them from the inner function as necessary without 
+requiring&nbsp;recomputation.</p>
+<p>The Gamma loglikelihood closure is provided&nbsp;below:</p>
+<div class="highlight"><pre><span></span><code><span class="c1"># Loglikelihood for the Gamma distribution. The outer function accepts the set of observations.</span>
+<span class="c1"># The inner function takes a vector of parameters (alpha, theta), and returns the loglikelihood. </span>
+<span class="n">gammaLLOuter</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">function</span><span class="p">(</span><span class="n">vals</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="c1"># -------------------------------------------------------------</span>
+<span class="w">    </span><span class="c1"># Return a function representing the the Gamma loglikelihood. |</span>
+<span class="w">    </span><span class="c1"># `n` represents the number of observations in vals.          |</span>
+<span class="w">    </span><span class="c1"># `s` represents the sum of vals with NAs removed.            |</span>
+<span class="w">    </span><span class="c1"># `l` represents the sum of log(vals) with NAs removed.       |</span>
+<span class="w">    </span><span class="c1"># -------------------------------------------------------------</span>
+<span class="w">    </span><span class="n">n</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">length</span><span class="p">(</span><span class="n">vals</span><span class="p">)</span>
+<span class="w">    </span><span class="n">s</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">sum</span><span class="p">(</span><span class="n">vals</span><span class="p">,</span><span class="w"> </span><span class="n">na.rm</span><span class="o">=</span><span class="kc">TRUE</span><span class="p">)</span>
+<span class="w">    </span><span class="n">l</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">sum</span><span class="p">(</span><span class="nf">log</span><span class="p">(</span><span class="n">vals</span><span class="p">),</span><span class="w"> </span><span class="n">na.rm</span><span class="o">=</span><span class="kc">TRUE</span><span class="p">)</span>
+
+<span class="w">    </span><span class="nf">function</span><span class="p">(</span><span class="n">v</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="c1"># ---------------------------------------------------------</span>
+<span class="w">        </span><span class="c1"># `v` represents a length-2 vector of parameters alpha    |</span>
+<span class="w">        </span><span class="c1"># (shape) and theta (scale).                              | </span>
+<span class="w">        </span><span class="c1"># Returns the loglikelihood.                              |</span>
+<span class="w">        </span><span class="c1"># ---------------------------------------------------------</span>
+<span class="w">        </span><span class="n">a</span><span class="w">     </span><span class="o">=</span><span class="w"> </span><span class="n">v</span><span class="p">[</span><span class="m">1</span><span class="p">]</span>
+<span class="w">        </span><span class="n">theta</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">v</span><span class="p">[</span><span class="m">2</span><span class="p">]</span>
+<span class="w">        </span><span class="nf">return</span><span class="p">((</span><span class="n">a</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="m">1</span><span class="p">)</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">l</span><span class="w">  </span><span class="o">-</span><span class="w"> </span><span class="p">(</span><span class="n">theta</span><span class="o">^</span><span class="m">-1</span><span class="p">)</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">s</span><span class="w">  </span><span class="o">-</span><span class="w"> </span><span class="n">n</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">a</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="nf">log</span><span class="p">(</span><span class="n">theta</span><span class="p">)</span><span class="w"> </span><span class="o">-</span><span class="n">n</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="nf">log</span><span class="p">(</span><span class="nf">gamma</span><span class="p">(</span><span class="n">a</span><span class="p">)))</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div>
+
+<p>50 random observations from a Gamma distribution with Gaussian noise are generated using $\alpha = 5$ and $\theta = 10000$. 
+We know beforehand the data originate from a Gamma distribution with noise. We want to verify that the optimization routine 
+can recover these parameters given only the&nbsp;data:</p>
+<div class="highlight"><pre><span></span><code><span class="n">a</span><span class="w">     </span><span class="o">=</span><span class="w"> </span><span class="m">5</span><span class="w">     </span><span class="c1"># shape</span>
+<span class="n">theta</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="m">10000</span><span class="w"> </span><span class="c1"># scale</span>
+<span class="n">n</span><span class="w">     </span><span class="o">=</span><span class="w"> </span><span class="m">50</span>
+<span class="n">vals</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">rgamma</span><span class="p">(</span><span class="n">n</span><span class="o">=</span><span class="n">n</span><span class="p">,</span><span class="w"> </span><span class="n">shape</span><span class="o">=</span><span class="n">a</span><span class="p">,</span><span class="w"> </span><span class="n">scale</span><span class="o">=</span><span class="n">theta</span><span class="p">)</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="nf">rnorm</span><span class="p">(</span><span class="n">n</span><span class="o">=</span><span class="n">n</span><span class="p">,</span><span class="w"> </span><span class="m">0</span><span class="p">,</span><span class="w"> </span><span class="n">theta</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="m">100</span><span class="p">)</span>
+</code></pre></div>
+
+<p>Referring back to the call signature for <code>optim</code>, we need to provide initial parameter values for the optimization routine 
+(the <code>par</code> argument). Using 0 can sometimes suffice, but since $\alpha, \theta &gt; 0$, different values must be provided. 
+We can leverage the Gamma distribution&#8217;s constant coefficient of determination to get an initial estimate of the shape 
+parameter $\alpha_{0}$, then use $\alpha_{0}$ along with the empirical mean to back out an initial scale parameter estimate, 
+$\theta_{0} = E[X] / \alpha_{0}$. In R, this is accomplished as&nbsp;follows:</p>
+<div class="highlight"><pre><span></span><code><span class="c1"># Get initial estimates for a, theta. </span>
+<span class="w"> </span><span class="n">valsMean</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">mean</span><span class="p">(</span><span class="n">vals</span><span class="p">,</span><span class="w"> </span><span class="n">na.rm</span><span class="o">=</span><span class="kc">TRUE</span><span class="p">)</span><span class="w"> </span><span class="c1"># empirical mean of vals</span>
+<span class="w"> </span><span class="n">valsStd</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">sd</span><span class="p">(</span><span class="n">vals</span><span class="p">,</span><span class="w"> </span><span class="n">na.rm</span><span class="o">=</span><span class="kc">TRUE</span><span class="p">)</span><span class="w">    </span><span class="c1"># empirical standard deviation of vals</span>
+<span class="w"> </span><span class="n">a0</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="n">valsMean</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="n">valsStd</span><span class="p">)</span><span class="o">^</span><span class="m">2</span><span class="w">       </span><span class="c1"># initial shape parameter estimate</span>
+<span class="w"> </span><span class="n">theta0</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">valsMean</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="n">a0</span><span class="w">            </span><span class="c1"># initial scale parameter estimate</span>
+</code></pre></div>
+
+<p>We have everything we need to compute maximum likelihood estimates. Two final points: By default, <code>optim</code> minimizes the 
+function passed into it. Since we&#8217;re looking to maximize the loglikelihood, we need to include an additional argument to 
+the <code>control</code> parameter as <code>list(fnscale=-1)</code> to ensure <code>optim</code> returns the maximum. Second, there are a number of 
+different optimizers from which to choose. A generally good choice is &#8220;<span class="caps">BFGS</span>&#8221;, which I use here. However, this is a large 
+and active area of research, which is also very interesting. A good place to find more information about optimization in R 
+is the fitdistrplus vingette <a href="https://cran.r-project.org/web/packages/fitdistrplus/vignettes/Optimalgo.html">Which optimization algorithm to choose?</a>.</p>
+<h2>Bringing it All&nbsp;Together</h2>
+<p>We initialize <code>gammaLLOuter</code> with <code>vals</code>, then pass the initial parameter values along with 
+<code>method="BFGS"</code> and <code>control=list(fnscale=-1)</code> into <code>optim</code>:</p>
+<div class="highlight"><pre><span></span><code><span class="c1"># Generating maximum likelihood estimates for data assumed to follow a Gamma distribution. </span>
+<span class="nf">options</span><span class="p">(</span><span class="n">scipen</span><span class="o">=</span><span class="m">-9999</span><span class="p">)</span>
+<span class="nf">set.seed</span><span class="p">(</span><span class="m">516</span><span class="p">)</span>
+
+<span class="n">gammaLLOuter</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">function</span><span class="p">(</span><span class="n">vals</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="c1"># -------------------------------------------------------------</span>
+<span class="w">    </span><span class="c1"># Return a function representing the the Gamma loglikelihood. |</span>
+<span class="w">    </span><span class="c1"># `n` represents the number of observations in vals.          |</span>
+<span class="w">    </span><span class="c1"># `s` represents the sum of vals with NAs removed.            |</span>
+<span class="w">    </span><span class="c1"># `l` represents the sum of log(vals) with NAs removed.       |</span>
+<span class="w">    </span><span class="c1"># -------------------------------------------------------------</span>
+<span class="w">    </span><span class="n">n</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">length</span><span class="p">(</span><span class="n">vals</span><span class="p">)</span>
+<span class="w">    </span><span class="n">s</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">sum</span><span class="p">(</span><span class="n">vals</span><span class="p">,</span><span class="w"> </span><span class="n">na.rm</span><span class="o">=</span><span class="kc">TRUE</span><span class="p">)</span>
+<span class="w">    </span><span class="n">l</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">sum</span><span class="p">(</span><span class="nf">log</span><span class="p">(</span><span class="n">vals</span><span class="p">),</span><span class="w"> </span><span class="n">na.rm</span><span class="o">=</span><span class="kc">TRUE</span><span class="p">)</span>
+
+<span class="w">    </span><span class="nf">function</span><span class="p">(</span><span class="n">v</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="c1"># ---------------------------------------------------------</span>
+<span class="w">        </span><span class="c1"># `v` represents a length-2 vector of parameters alpha    |</span>
+<span class="w">        </span><span class="c1"># (shape) and theta (scale).                              | </span>
+<span class="w">        </span><span class="c1"># Returns the loglikelihood.                              |</span>
+<span class="w">        </span><span class="c1"># ---------------------------------------------------------</span>
+<span class="w">        </span><span class="n">a</span><span class="w">     </span><span class="o">=</span><span class="w"> </span><span class="n">v</span><span class="p">[</span><span class="m">1</span><span class="p">]</span>
+<span class="w">        </span><span class="n">theta</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">v</span><span class="p">[</span><span class="m">2</span><span class="p">]</span>
+<span class="w">        </span><span class="nf">return</span><span class="p">((</span><span class="n">a</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="m">1</span><span class="p">)</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">l</span><span class="w">  </span><span class="o">-</span><span class="w"> </span><span class="p">(</span><span class="n">theta</span><span class="o">^</span><span class="m">-1</span><span class="p">)</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">s</span><span class="w">  </span><span class="o">-</span><span class="w"> </span><span class="n">n</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">a</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="nf">log</span><span class="p">(</span><span class="n">theta</span><span class="p">)</span><span class="w"> </span><span class="o">-</span><span class="n">n</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="nf">log</span><span class="p">(</span><span class="nf">gamma</span><span class="p">(</span><span class="n">a</span><span class="p">)))</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="p">}</span>
+
+
+<span class="c1"># Generate 50 random Gamma observations with Gaussian noise. </span>
+<span class="n">a</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="m">5</span><span class="w">     </span><span class="c1"># shape</span>
+<span class="n">theta</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="m">10000</span><span class="w"> </span><span class="c1"># scale</span>
+<span class="n">n</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="m">50</span>
+<span class="n">vals</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">rgamma</span><span class="p">(</span><span class="n">n</span><span class="o">=</span><span class="n">n</span><span class="p">,</span><span class="w"> </span><span class="n">shape</span><span class="o">=</span><span class="n">a</span><span class="p">,</span><span class="w"> </span><span class="n">scale</span><span class="o">=</span><span class="n">theta</span><span class="p">)</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="nf">rnorm</span><span class="p">(</span><span class="n">n</span><span class="o">=</span><span class="n">n</span><span class="p">,</span><span class="w"> </span><span class="m">0</span><span class="p">,</span><span class="w"> </span><span class="n">theta</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="m">100</span><span class="p">)</span>
+
+<span class="c1"># Initialize gammaLL.</span>
+<span class="n">gammaLL</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">gammaLLOuter</span><span class="p">(</span><span class="n">vals</span><span class="p">)</span>
+
+<span class="c1"># Determine initial estimates for shape and scale.</span>
+<span class="w"> </span><span class="n">valsMean</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">mean</span><span class="p">(</span><span class="n">vals</span><span class="p">,</span><span class="w"> </span><span class="n">na.rm</span><span class="o">=</span><span class="kc">TRUE</span><span class="p">)</span>
+<span class="w"> </span><span class="n">valsStd</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">sd</span><span class="p">(</span><span class="n">vals</span><span class="p">,</span><span class="w"> </span><span class="n">na.rm</span><span class="o">=</span><span class="kc">TRUE</span><span class="p">)</span>
+<span class="w"> </span><span class="n">a0</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="n">valsMean</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="n">valsStd</span><span class="p">)</span><span class="o">^</span><span class="m">2</span><span class="w"> </span>
+<span class="w"> </span><span class="n">theta0</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">valsMean</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="n">a0</span>
+<span class="w"> </span><span class="n">paramsInit</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">c</span><span class="p">(</span><span class="n">a0</span><span class="p">,</span><span class="w"> </span><span class="n">theta0</span><span class="p">)</span>
+
+<span class="c1"># Dispatch arguments to optim.</span>
+<span class="n">paramsMLE</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">optim</span><span class="p">(</span>
+<span class="w">    </span><span class="n">par</span><span class="o">=</span><span class="n">paramsInit</span><span class="p">,</span><span class="w"> </span><span class="n">fn</span><span class="o">=</span><span class="n">gammaLL</span><span class="p">,</span><span class="w"> </span><span class="n">method</span><span class="o">=</span><span class="s">&quot;BFGS&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">control</span><span class="o">=</span><span class="nf">list</span><span class="p">(</span><span class="n">fnscale</span><span class="o">=</span><span class="m">-1</span><span class="p">)</span>
+<span class="w">    </span><span class="p">)</span>
+</code></pre></div>
+
+<p><code>optim</code> returns a list with a number of elements. We are concerned primarily with three&nbsp;elements:</p>
+<ul>
+<li><code>convergence</code>: Specifies whether the optimization converged to a solution. 0 means yes,<br>
+any other number means it did not&nbsp;converge.</li>
+<li><code>par</code>: A vector of parameter&nbsp;estimates.</li>
+<li><code>value</code>: The maximized&nbsp;loglikelihood.</li>
+</ul>
+<p>If you plug in the values for $\alpha$ and $\theta$ from <code>paramsMLE$par</code>, you would get a value equal to <code>paramsMLE$value. 
+Checking the values returned by the call to</code>optim` above, we&nbsp;have:</p>
+<div class="highlight"><pre><span></span><code><span class="o">&gt;</span><span class="w"> </span><span class="n">paramsMLE</span><span class="o">$</span><span class="n">convergence</span>
+<span class="p">[</span><span class="m">1</span><span class="p">]</span><span class="w"> </span><span class="m">0</span>
+<span class="o">&gt;</span><span class="w"> </span><span class="n">paramsMLE</span><span class="o">$</span><span class="n">par</span>
+<span class="p">[</span><span class="m">1</span><span class="p">]</span><span class="w">    </span><span class="m">5.234362</span><span class="w"> </span><span class="m">9515.717485</span>
+<span class="o">&gt;</span><span class="w"> </span><span class="n">paramsMLE</span><span class="o">$</span><span class="n">value</span>
+<span class="p">[</span><span class="m">1</span><span class="p">]</span><span class="w"> </span><span class="m">-566.4171</span>
+</code></pre></div>
+
+<p>Let&#8217;s compare our estimates against estimates produced by <code>fitdistrplus</code>. We need to scale our 
+data by 100, otherwise <code>fitdist</code> throws an&nbsp;error:</p>
+<div class="highlight"><pre><span></span><code><span class="o">&gt;</span><span class="w"> </span><span class="n">fitdistrplus</span><span class="o">::</span><span class="nf">fitdist</span><span class="p">(</span><span class="n">vals</span><span class="o">/</span><span class="m">100</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;gamma&quot;</span><span class="p">)</span>
+<span class="n">Fitting</span><span class="w"> </span><span class="n">of</span><span class="w"> </span><span class="n">the</span><span class="w"> </span><span class="n">distribution</span><span class="w"> </span><span class="s">&#39; gamma &#39;</span><span class="w"> </span><span class="n">by</span><span class="w"> </span><span class="n">maximum</span><span class="w"> </span><span class="n">likelihood</span><span class="w"> </span>
+<span class="n">Parameters</span><span class="o">:</span>
+<span class="w">        </span><span class="n">estimate</span><span class="w">  </span><span class="n">Std.</span><span class="w"> </span><span class="n">Error</span>
+<span class="n">shape</span><span class="w"> </span><span class="m">5.35617640</span><span class="w"> </span><span class="m">0.983440540</span>
+<span class="n">rate</span><span class="w">  </span><span class="m">0.01077757</span><span class="w"> </span><span class="m">0.002056568</span>
+</code></pre></div>
+
+<p>If we reciprocate the estimate for &#8220;rate&#8221; and multiply by 100 (the amount we divided <code>vals</code> by in 
+the call to <code>fitdist</code>), we get a scale estimate of 9278.53. Note that dividing by 100 works for 
+the Gamma density, since it is an exponential scale family distribution, but this will not work 
+for distributions generally. In&nbsp;summary:</p>
+<div class="highlight"><pre><span></span><code><span class="w">                          </span><span class="n">shape</span><span class="w">        </span><span class="s">scale</span>
+<span class="n">Our</span><span class="w"> </span><span class="s">estimate</span><span class="w">         </span><span class="s">:</span><span class="w"> </span><span class="s">5.234362</span><span class="w">   </span><span class="s">9515.71748</span>
+<span class="n">fitdistrplus</span><span class="w"> </span><span class="s">estimate:</span><span class="w"> </span><span class="s">5.356176</span><span class="w">   </span><span class="s">9278.52939</span>
+<span class="c">% difference         : 2.22743%     2.55631%</span>
+</code></pre></div>
+
+<p>We find the estimates for each parameter are within 3% of one&nbsp;another. </p>
+            </div>
+            <!-- /.entry-content -->
+        </article>
+    </section>
+
+        </div>
+        <div class="col-sm-3" id="sidebar">
+            <aside>
+<div id="aboutme">
+        <p>
+            <img width="100%" class="img-thumbnail" src="./images/JDTGOOG.JPG"/>
+        </p>
+    <p>
+      <strong>About James D. Triveri</strong><br/>
+        Data Scientist interested in ML/DL, automation and scientific computing.
+    </p>
+</div><!-- Sidebar -->
+<section class="well well-sm">
+  <ul class="list-group list-group-flush">
+
+<!-- Sidebar/Links -->
+<li class="list-group-item">
+  <h4><i class="fa fa-external-link-square fa-lg"></i><span class="icon-label">Links</span></h4>
+  <ul class="list-group" id="links">
+    <li class="list-group-item">
+      <a href="http://python.org/" target="_blank">Python.org</a>
+    </li>
+    <li class="list-group-item">
+      <a href="https://docs.python.org/3/py-modindex.html" target="_blank">The Python Module Index</a>
+    </li>
+    <li class="list-group-item">
+      <a href="https://scikit-learn.org/stable/documentation.html" target="_blank">Scikit-Learn</a>
+    </li>
+    <li class="list-group-item">
+      <a href="https://www.scipy.org/docs.html" target="_blank">Scipy Docs</a>
+    </li>
+    <li class="list-group-item">
+      <a href="https://openai.com/" target="_blank">OpenAI</a>
+    </li>
+  </ul>
+</li>
+<!-- End Sidebar/Links -->
+
+<!-- Sidebar/Images -->
+<li class="list-group-item">
+  <ul class="list-group" id="links">
+    <img width="100%" class="img-thumbnail" src="images/Sidebar/sidebarA.jpg"/>
+    <img width="100%" class="img-thumbnail" src="images/Sidebar/sidebarB.png"/>
+    <img width="100%" class="img-thumbnail" src="images/Sidebar/sidebarC.jpg"/>
+    <img width="100%" class="img-thumbnail" src="images/Sidebar/sidebarD.jpg"/>
+  </ul>
+</li>
+<!-- End Sidebar/Images -->
+  </ul>
+</section>
+<!-- End Sidebar -->            </aside>
+        </div>
+    </div>
+</div>
+<!-- End Content Container -->
+
+<footer>
+   <div class="container-fluid">
+      <hr>
+      <div class="row">
+         <div class="col-xs-10">&copy; 2023 James D. Triveri
+            &middot; Powered by <a href="https://github.com/getpelican/pelican-themes/tree/master/pelican-bootstrap3" target="_blank">pelican-bootstrap3</a>,
+            <a href="http://docs.getpelican.com/" target="_blank">Pelican</a>,
+            <a href="http://getbootstrap.com" target="_blank">Bootstrap</a>         </div>
+         <div class="col-xs-2"><p class="pull-right"><i class="fa fa-arrow-up"></i> <a href="#">Back to top</a></p></div>
+      </div>
+   </div>
+</footer>
+<script src="./theme/js/jquery.min.js"></script>
+
+<!-- Include all compiled plugins (below), or include individual files as needed -->
+<script src="./theme/js/bootstrap.min.js"></script>
+
+<!-- Enable responsive features in IE8 with Respond.js (https://github.com/scottjehl/Respond) -->
+<script src="./theme/js/respond.min.js"></script>
+
+
+    <script src="./theme/js/bodypadding.js"></script>
+
+
+</body>
+</html>
