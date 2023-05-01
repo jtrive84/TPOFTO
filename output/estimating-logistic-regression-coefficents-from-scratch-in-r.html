@@ -1,0 +1,630 @@
+<!DOCTYPE html>
+<html lang="en" prefix="og: http://ogp.me/ns# fb: https://www.facebook.com/2008/fbml">
+<head>
+    <title>Estimating Logistic Regression Coefficents From Scratch in R - The Pleasure of Finding Things Out</title>
+    <!-- Using the latest rendering mode for IE -->
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+
+
+<link rel="canonical" href="./estimating-logistic-regression-coefficents-from-scratch-in-r.html">
+
+        <meta name="author" content="James D. Triveri" />
+        <meta name="keywords" content="Statistical Modeling,R" />
+        <meta name="description" content="Fitting Logistic regression models with Iterative Reweighted Least Squares in R" />
+
+        <meta property="og:site_name" content="The Pleasure of Finding Things Out" />
+        <meta property="og:type" content="article"/>
+        <meta property="og:title" content="Estimating Logistic Regression Coefficents From Scratch in R"/>
+        <meta property="og:url" content="./estimating-logistic-regression-coefficents-from-scratch-in-r.html"/>
+        <meta property="og:description" content="Fitting Logistic regression models with Iterative Reweighted Least Squares in R"/>
+        <meta property="article:published_time" content="2023-04-17" />
+            <meta property="article:section" content="Statistical Modeling" />
+            <meta property="article:tag" content="Statistical Modeling" />
+            <meta property="article:tag" content="R" />
+            <meta property="article:author" content="James D. Triveri" />
+
+
+
+    <!-- Bootstrap -->
+        <link rel="stylesheet" href="./theme/css/bootstrap.Yeti.min.css" type="text/css"/>
+    <link href="./theme/css/font-awesome.min.css" rel="stylesheet">
+
+    <link href="./theme/css/pygments/default.css" rel="stylesheet">
+        <link href="./theme/css/typogrify.css" rel="stylesheet">
+    <link rel="stylesheet" href="./theme/css/style.css" type="text/css"/>
+        <link href="./static/css/custom.css" rel="stylesheet">
+
+
+
+
+</head>
+<body>
+
+<div class="navbar navbar-inverse navbar-fixed-top" role="navigation">
+    <div class="container-fluid">
+        <div class="navbar-header">
+            <button type="button" class="navbar-toggle" data-toggle="collapse" data-target=".navbar-ex1-collapse">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            <a href="./" class="navbar-brand">
+The Pleasure of Finding Things Out            </a>
+        </div>
+        <div class="collapse navbar-collapse navbar-ex1-collapse">
+            <ul class="nav navbar-nav">
+                         <li><a href="./pages/about-me.html">
+                             About&nbsp;Me
+                          </a></li>
+                        <li >
+                            <a href="./category/machine-learning.html">Machine learning</a>
+                        </li>
+                        <li >
+                            <a href="./category/python.html">Python</a>
+                        </li>
+                        <li >
+                            <a href="./category/r.html">R</a>
+                        </li>
+                        <li class="active">
+                            <a href="./category/statistical-modeling.html">Statistical modeling</a>
+                        </li>
+                        <li >
+                            <a href="./category/statistical-modeling-r.html">Statistical modeling, r</a>
+                        </li>
+            </ul>
+            <ul class="nav navbar-nav navbar-right">
+            </ul>
+        </div>
+        <!-- /.navbar-collapse -->
+    </div>
+</div> <!-- /.navbar -->
+
+<!-- Banner -->
+<!-- End Banner -->
+
+<!-- Content Container -->
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-sm-9">
+    <section id="content">
+        <article>
+            <header class="page-header">
+                <h1>
+                    <a href="./estimating-logistic-regression-coefficents-from-scratch-in-r.html"
+                       rel="bookmark"
+                       title="Permalink to Estimating Logistic Regression Coefficents From Scratch in R">
+                        Estimating Logistic Regression Coefficents From Scratch in&nbsp;R
+                    </a>
+                </h1>
+            </header>
+            <div class="entry-content">
+                <div class="panel">
+                    <div class="panel-body">
+<footer class="post-info">
+    <span class="label label-default">Date</span>
+    <span class="published">
+        <i class="fa fa-calendar"></i><time datetime="2023-04-17T00:00:00-05:00"> 2023-04-17</time>
+    </span>
+
+
+
+
+
+<span class="label label-default">Tags</span>
+	<a href="./tag/statistical-modeling.html">Statistical Modeling</a>
+        /
+	<a href="./tag/r.html">R</a>
+    
+</footer><!-- /.post-info -->                    </div>
+                </div>
+                <p>In this post, we highlight the parameter estimation routines called behind the 
+scences upon invocation of R&#8217;s glm function. Specifically, we&#8217;ll focus on how 
+parameters of a Logistic Regression model are estimated when fit to data having 
+a binary&nbsp;response.</p>
+<p>R&#8217;s glm function is used to fit generalized linear models, specified by giving 
+a symbolic description of the linear predictor and a description of the error 
+distribution. This function conceals a good deal of the complexity behind a simple 
+interface, making it easy to overlook the calculations that estimate a model&#8217;s 
+coefficents. The goal of this post is to shed some light on the mechanics of those&nbsp;calcuations.</p>
+<h2>Background</h2>
+<p>In a generalized linear model the response may follow any distribution from the 
+exponential family, and rather than assuming the mean is a linear function of 
+the explanatory variables, we assume that a function of the mean (the 
+link function) is a linear function of the explanatory&nbsp;variables.</p>
+<p>Logistic regression is used for modeling data with a categorical response. 
+Although it&#8217;s possible to model multinomial data using logistic regression,
+this article focuses only on fitting data having a dichotomous response
+(&#8216;Yes/No&#8217;, &#8216;True/False&#8217;, &#8216;1/0&#8217;,&nbsp;&#8216;Good/Bad&#8217;).</p>
+<p>The logistic regression model is a generalized linear model whose canonical 
+link is the logit, or&nbsp;log-odds:</p>
+<p>$$
+\mathrm{Ln} \Big(\frac{\pi_{i}}{1 - \pi_{i}} \Big) = \beta_{0} + \beta_{1}{x}<em p>{i1} + \cdots + \beta</em>{x}_{ip}, \quad i = (1, \cdots , n).&nbsp;$$</p>
+<p>Solving the logit for $\pi_{i}$, which represents the predicted probability 
+for a set of features $x_{i}$,&nbsp;yields</p>
+<p>$$
+\pi_{i} = \frac {e^{\beta_{0} + \beta_{1}{x}<em p>{i1} + \cdots + \beta</em>{x}<em 0>{ip}}}{1 + e^{\beta</em> + \beta_{1}{x}<em p>{i1} + \cdots + \beta</em>{x}<em 0>{ip}}} = \frac {1}{1 + e^{-(\beta</em> + \beta_{1}{x}<em p>{i1} + \cdots + \beta</em>{x}_{ip})}},&nbsp;$$</p>
+<p>Where $-\infty &lt; x_{i} &lt; \infty$ and&nbsp;$0&lt;\pi_{i}&lt;1$. </p>
+<p>In other words, the expression for $\pi_{i}$ maps any real-valued $x_{i}$ to a 
+positive probability between 0 and&nbsp;1.   </p>
+<h2>Parameter&nbsp;Estimation</h2>
+<p>Maximum Likelihood Estimation can be used to determine the parameters of a 
+Logistic Regression model, which entails finding the set of parameters for 
+which the probability of the observed data is greatest. The objective is to 
+estimate the $(p+1)$ unknown $\beta_{0}, \cdots,&nbsp;\beta_{p}$.    </p>
+<p>Let $Y_{i}$ represent independent, dicotomous response values for each of $n$ 
+observations, where $Y_{i}=1$ denotes a success and $Y_{i}=0$ denotes a failure. 
+The density function of a single observation $Y_{i}$ can be expressed&nbsp;as  </p>
+<p>$$
+p(y_{i}) = \pi_{i}^{y_{i}}(1-\pi_{i})^{1-y_{i}},&nbsp;$$</p>
+<p>From which we obtain the likelihood&nbsp;function:</p>
+<p>$$
+L(\beta) = \prod_{i=1}^{n} \pi_{i}^{y_{i}}(1-\pi_{i})^{1-y_{i}}.&nbsp;$$</p>
+<p>Taking the natural log of the maximum likelihood estimate results in the log-likelihood&nbsp;function:</p>
+<p>$$
+\begin{align<em>} 
+l(\beta) &amp;= \mathrm{Ln}(L(\beta)) = \mathrm{Ln} \Big(\prod_{i=1}^{n} \pi_{i}^{y_{i}}(1-\pi_{i})^{1-y_{i}} \Big) \
+&amp;= \sum_{i=1}^{n} y_{i} \mathrm{Ln}(\pi_{i}) + (1-y_{i})\mathrm{Ln}(1-\pi_{i}) \
+&amp;= \sum_{i=1}^{n} y_{i}(\beta_{0} + \beta_{1}{x}<em p>{i1} + \cdots + \beta</em>{x}<em 0>{ip}) - \mathrm{Ln}(1 + e^{\beta</em> + \beta_{1}{x}<em p>{i1} + \cdots + \beta</em>{x}_{ip}})
+\end{align</em>}&nbsp;$$</p>
+<p>The first-order partial derivatives of the log-likelihood are calculated and set to zero for each 
+$\beta_{k}, k = 0, 1, \cdots,&nbsp;p$:</p>
+<p>$$
+\frac {\partial l(\beta)}{\partial \beta_{k}} = \sum_{i=1}^{n} y_{i}x_{ik} - \pi_{i}x_{ik} = \sum_{i=1}^{n} x_{ik}(y_{i} - \pi_{i}) = 0,&nbsp;$$</p>
+<p>which can be represented in matrix form&nbsp;as</p>
+<p>$$
+\frac {\partial l(\beta)}{\partial \beta} = X^{T}(y - \pi),&nbsp;$$</p>
+<p>Where $X^{T}$ is a (p+1)xn matrix and $(y - \pi)$ a nx1&nbsp;vector.</p>
+<p>The vector of first-order partial derivatives of the log-likelihood function is 
+referred to as the <em>score function</em>, and is typically represented as&nbsp;$U$.    </p>
+<p>These $(p+1)$ equations are solved simultaneously to obtain the parameter 
+estimates $\beta_{0}, \cdots, \beta_{p}$. Each solution specifies a 
+critical-point which will be either a maximum or a minimum. The critical point 
+will be a maximum if the matrix of second partial derivatives is negative 
+definite (which means every element on the diagonal of the matrix is less than&nbsp;zero).</p>
+<p>The matrix of second partial derivatives can be expressed&nbsp;as  </p>
+<p>$$
+\frac{\partial^{2} l(\beta)}{{\partial \beta_{k}}{\partial \beta_{k}}^{T}} = - \sum_{i=1}^{n} x_{ik}\pi_{i}(1-\pi_{i}){x_{ik}}^{T},&nbsp;$$</p>
+<p>which in matrix form&nbsp;becomes:</p>
+<p>$$
+\frac{\partial^{2} l(\beta)}{{\partial \beta}{\partial \beta}^{T}} = -X^{T}<span class="caps">WX</span>,&nbsp;$$</p>
+<p>where $W$ is an nxn diagonal matrix of weights with each element equal 
+to $\pi_{i}(1 - \pi_{i})$ for logistic regression models. In general, the 
+weight matrix $W$ will have entries inversely proportional to the variance of 
+the&nbsp;response.</p>
+<p>Since no closed-form solution exists for determining logistic regression coefficents, 
+iterative techniques must be&nbsp;employed.</p>
+<h2>Fitting the&nbsp;Model</h2>
+<p>Two distinct but related iterative methods can be utilized in determining model 
+coefficents: the Newton-Raphson method and Fisher Scoring. The Newton-Raphson 
+method relies on the matrix of second partial derivatives, also known as the 
+Hessian. The Newton-Raphson update expression is given&nbsp;by:</p>
+<p>$$
+\beta^{(t+1)} = \beta^{(t)} - (H^{(t)})^{-1}U^{(t)},&nbsp;$$</p>
+<p>where:</p>
+<ul>
+<li>$\beta^{(t+1)}$ = the vector of updated coefficent&nbsp;estimates.  </li>
+<li>$\beta^{(t)}$ = the vector of coefficent estimates from the previous&nbsp;iteration.</li>
+<li>$(H^{(t)})^{-1}$ = the inverse Hessian, $\Big(\frac{\partial^{2} l(\beta)}{{\partial \beta}{\partial&nbsp;\beta}^{T}}\Big)^{-1}$.   </li>
+<li>$U^{(t)}$ = the vector of first-order partial derivatives of the log-likelihood function, $\frac {\partial l(\beta)}{\partial \beta} = X^{T}(y -&nbsp;\pi)$.  </li>
+</ul>
+<p>The Newton-Raphson method starts with an initial guess for the solution, and 
+obtains a second guess by approximating the function to be maximized in a 
+neighborhood of the initial guess by a second-degree polynomial, and then 
+finding the location of that polynomial&#8217;s maximum value. This process continues 
+until it converges to the actual solution. The convergence of $\beta^{(t)}$ to
+$\hat{\beta}$  is usually fast, with adequate convergence commonly realized in 
+fewer than 20&nbsp;iterations. </p>
+<p>Fisher Scoring utilizes the expected information, 
+$-E\Big(\frac{\partial^{2} l(\beta)}{{\partial \beta}{\partial \beta}^{T}}\Big)$.
+Let $\mathcal{I}$ serve as a stand-in for the expected value of the&nbsp;information:</p>
+<p>$$
+\mathcal{I} = -E\Big(\frac{\partial^{2} l(\beta)}{{\partial \beta}{\partial \beta}^{T}}\Big).&nbsp;$$</p>
+<p>The Fisher Scoring update step replaces $-H^{(t)}$ from Newton-Raphson with&nbsp;$\mathcal{I}^{(t)}$:</p>
+<p>$$
+\begin{align<em>} 
+\beta^{(t+1)} &amp;= \beta^{(t)} + (\mathcal{I}^{(t)})^{-1}U^{(t)} \
+&amp;= \beta^{(t)} + (X^{T}<span class="caps">WX</span>)^{-1}X^{T}(y - \pi),
+\end{align</em>}&nbsp;$$</p>
+<p>where:</p>
+<ul>
+<li>$\beta^{(t+1)}$ = the vector of updated coefficent&nbsp;estimates.               </li>
+<li>$\beta^{(t)}$ = the vector of coefficent estimates from the previous&nbsp;iteration.   </li>
+<li>$(\mathcal{I}^{(t)})^{-1}$ = the inverse of the expected information matrix, $-E \Big(\frac{\partial^{2} l(\beta)}{{\partial \beta}{\partial&nbsp;\beta}^{T}}\Big)^{-1}$.   </li>
+<li>$U^{(t)}$ = the vector of first-order partial derivatives of the log-likelihood function, $\frac {\partial l(\beta)}{\partial \beta} = X^{T}(y -&nbsp;\pi)$.     </li>
+</ul>
+<p>For <span class="caps">GLM</span>&#8217;s with a canonical link, the observed and expected information are the same. 
+When the response follows an exponential family distribution and the canonical 
+link function is employed, observed and expected Information coincide so that Fisher Scoring 
+is the same as&nbsp;Newton-Raphson.</p>
+<p>When the canonical link is used, the second partial derivatives of the 
+log-likelihood do not depend on the observations $y_{i}$, and&nbsp;therefore</p>
+<p>$$
+\frac{\partial^{2} l(\beta)}{{\partial \beta}{\partial \beta}^{T}} = E \Big(\frac{\partial^{2} l(\beta)}{{\partial \beta}{\partial \beta}^{T}} \Big).&nbsp;$$</p>
+<p>Fisher scoring has the advantage that it produces the asymptotic covariance matrix as a by-product.
+To&nbsp;summarize:</p>
+<ul>
+<li>The Hessian is the matrix of second partial derivatives of the log-likelihood with respect to the parameters: $H = \frac{\partial^{2} l(\beta)}{{\partial \beta}{\partial&nbsp;\beta}^{T}}$.   </li>
+<li>The observed information is $-\frac{\partial^{2} l(\beta)}{{\partial \beta}{\partial&nbsp;\beta}^{T}}$. </li>
+<li>The expected information is $\mathcal{I} = E\Big(-\frac{\partial^{2} l(\beta)}{{\partial \beta}{\partial&nbsp;\beta}^{T}}\Big)$.    </li>
+<li>The asymptotic covariance matrix is $mathrm{Var}(\hat{\beta}) = E\Big(-\frac{\partial^{2} l(\beta)}{{\partial \beta}{\partial \beta}^{T}}\Big)^{-1} = (X^{T}<span class="caps">WX</span>)^{-1}$.    </li>
+</ul>
+<p>For models employing a canonical link&nbsp;function:</p>
+<ul>
+<li>The observed and expected information are the same: $\frac{\partial^{2} l(\beta)}{{\partial \beta}{\partial \beta}^{T}} = E\Big(\frac{\partial^{2} l(\beta)}{{\partial \beta}{\partial&nbsp;\beta}^{T}}\Big)$.  </li>
+<li>$H = -\mathcal{I}$, or $\frac{\partial^{2} l(\beta)}{{\partial \beta}{\partial \beta}^{T}} = E\Big(-\frac{\partial^{2} l(\beta)}{{\partial \beta}{\partial&nbsp;\beta}^{T}}\Big)$.      </li>
+<li>The Newton-Raphson and Fisher Scoring algorithms yield identical&nbsp;results.  </li>
+</ul>
+<h2>Fisher Scoring in&nbsp;R</h2>
+<p>The data used for our sample calculation can be obtained <a href="https://gist.github.com/jtrive84/835514a76f7afd552c999e4d9134baa8">here</a>. 
+This data represents O-ring failures in the 23 pre-Challenger space shuttle 
+missions. In this dataset, <span class="caps">TEMPERATURE</span> serves as the single explanatory 
+variable which will be used to predict &#8220;O_RING_FAILURE&#8221;, which is 1 if a 
+failure occurred, 0&nbsp;otherwise.</p>
+<p>Once the parameters have been determined, the model estimate of the probability 
+of success for a given observation can be calculated&nbsp;via:</p>
+<p>$$
+\hat\pi_{i} = \frac {e^{\hat\beta_{0} + \hat\beta_{1}{x}<em p>{i1} + \cdots + \hat\beta</em>{x}<em 0>{ip}}}{1 + e^{\hat\beta</em> + \hat\beta_{1}{x}<em p>{i1} + \cdots + \hat\beta</em>{x}_{ip}}}&nbsp;$$</p>
+<p>In the code that follows we define a single function, <code>getCoefficients</code>, which 
+returns the estimated model coefficents as a (p+1)x1 matrix. In 
+addition, the function returns the number of scoring iterations, fitted values 
+and resulting variance-covariance&nbsp;matrix.</p>
+<div class="highlight"><pre><span></span><code><span class="n">getCoefficients</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">function</span><span class="p">(</span><span class="n">design_matrix</span><span class="p">,</span><span class="w"> </span><span class="n">response_vector</span><span class="p">,</span><span class="w"> </span><span class="n">epsilon</span><span class="o">=</span><span class="n">.</span><span class="m">0001</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="c1"># =========================================================================</span>
+<span class="w">    </span><span class="c1"># design_matrix      `X`     =&gt; n-by-(p+1)                                |</span>
+<span class="w">    </span><span class="c1"># response_vector    `y`     =&gt; n-by-1                                    |</span>
+<span class="w">    </span><span class="c1"># probability_vector `p`     =&gt; n-by-1                                    |</span>
+<span class="w">    </span><span class="c1"># weights_matrix     `W`     =&gt; n-by-n                                    |</span>
+<span class="w">    </span><span class="c1"># epsilon                    =&gt; threshold above which iteration continues |</span>
+<span class="w">    </span><span class="c1"># =========================================================================</span>
+<span class="w">    </span><span class="c1"># n                          =&gt; # of observations                         |</span>
+<span class="w">    </span><span class="c1"># (p + 1)                    =&gt; # of parameters, +1 for intercept term    |</span>
+<span class="w">    </span><span class="c1"># =========================================================================</span>
+<span class="w">    </span><span class="c1"># U =&gt; First derivative of Log-Likelihood with respect to                 |</span>
+<span class="w">    </span><span class="c1">#      each beta_i, i.e. `Score Function`: X_transpose * (y - p)          |</span>
+<span class="w">    </span><span class="c1">#                                                                         |</span>
+<span class="w">    </span><span class="c1"># I =&gt; Second derivative of Log-Likelihood with respect to                |</span>
+<span class="w">    </span><span class="c1">#      each beta_i. The `Information Matrix`: (X_transpose * W * X)       |</span>
+<span class="w">    </span><span class="c1">#                                                                         |</span>
+<span class="w">    </span><span class="c1"># X^T*W*X results in a (p+1)-by-(p+1) matrix                              |</span>
+<span class="w">    </span><span class="c1"># X^T(y - p) results in a (p+1)-by-1 matrix                               |</span>
+<span class="w">    </span><span class="c1"># (X^T*W*X)^-1 * X^T(y - p) results in a (p+1)-by-1 matrix                |</span>
+<span class="w">    </span><span class="c1"># ========================================================================|</span>
+<span class="w">    </span><span class="n">X</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">as.matrix</span><span class="p">(</span><span class="n">design_matrix</span><span class="p">)</span>
+<span class="w">    </span><span class="n">y</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">as.matrix</span><span class="p">(</span><span class="n">response_vector</span><span class="p">)</span>
+
+<span class="w">    </span><span class="c1"># Initialize logistic function used for Scoring calculations.</span>
+<span class="w">    </span><span class="n">pi_i</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">function</span><span class="p">(</span><span class="n">v</span><span class="p">)</span><span class="w"> </span><span class="nf">return</span><span class="p">(</span><span class="nf">exp</span><span class="p">(</span><span class="n">v</span><span class="p">)</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="p">(</span><span class="m">1</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="nf">exp</span><span class="p">(</span><span class="n">v</span><span class="p">)))</span>
+
+<span class="w">    </span><span class="c1"># Initialize beta_0, p_0, W_0, I_0 &amp; U_0.</span>
+<span class="w">    </span><span class="n">beta_0</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">matrix</span><span class="p">(</span><span class="nf">rep</span><span class="p">(</span><span class="m">0</span><span class="p">,</span><span class="w"> </span><span class="nf">ncol</span><span class="p">(</span><span class="n">X</span><span class="p">)),</span><span class="w"> </span><span class="n">nrow</span><span class="o">=</span><span class="nf">ncol</span><span class="p">(</span><span class="n">X</span><span class="p">),</span><span class="w"> </span><span class="n">ncol</span><span class="o">=</span><span class="m">1</span><span class="p">,</span><span class="w"> </span><span class="n">byrow</span><span class="o">=</span><span class="kc">FALSE</span><span class="p">,</span><span class="w"> </span><span class="n">dimnames</span><span class="o">=</span><span class="kc">NULL</span><span class="p">)</span>
+<span class="w">    </span><span class="n">p_0</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">pi_i</span><span class="p">(</span><span class="n">X</span><span class="w"> </span><span class="o">%*%</span><span class="w"> </span><span class="n">beta_0</span><span class="p">)</span>
+<span class="w">    </span><span class="n">W_0</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">diag</span><span class="p">(</span><span class="nf">as.vector</span><span class="p">(</span><span class="n">p_0</span><span class="o">*</span><span class="p">(</span><span class="m">1</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">p_0</span><span class="p">)))</span>
+<span class="w">    </span><span class="n">I_0</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">t</span><span class="p">(</span><span class="n">X</span><span class="p">)</span><span class="w"> </span><span class="o">%*%</span><span class="w"> </span><span class="n">W_0</span><span class="w"> </span><span class="o">%*%</span><span class="w"> </span><span class="n">X</span>
+<span class="w">    </span><span class="n">U_0</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">t</span><span class="p">(</span><span class="n">X</span><span class="p">)</span><span class="w"> </span><span class="o">%*%</span><span class="w"> </span><span class="p">(</span><span class="n">y</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">p_0</span><span class="p">)</span>
+
+<span class="w">    </span><span class="c1"># Initialize variables for iteration.</span>
+<span class="w">    </span><span class="n">beta_old</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">beta_0</span>
+<span class="w">    </span><span class="n">iter_I</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">I_0</span>
+<span class="w">    </span><span class="n">iter_U</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">U_0</span>
+<span class="w">    </span><span class="n">iter_p</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">p_0</span>
+<span class="w">    </span><span class="n">iter_W</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">W_0</span>
+<span class="w">    </span><span class="n">fisher_scoring_iterations</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="m">0</span>
+
+<span class="w">    </span><span class="c1"># Iterate until difference between abs(beta_new - beta_old) &lt; epsilon.</span>
+<span class="w">    </span><span class="nf">while</span><span class="p">(</span><span class="kc">TRUE</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="n">fisher_scoring_iterations</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">fisher_scoring_iterations</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="m">1</span>
+<span class="w">        </span><span class="n">beta_new</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">beta_old</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="nf">solve</span><span class="p">(</span><span class="n">iter_I</span><span class="p">)</span><span class="w"> </span><span class="o">%*%</span><span class="w"> </span><span class="n">iter_U</span>
+
+<span class="w">        </span><span class="nf">if </span><span class="p">(</span><span class="nf">all</span><span class="p">(</span><span class="nf">abs</span><span class="p">(</span><span class="n">beta_new</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">beta_old</span><span class="p">)</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">epsilon</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="n">model_parameters</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">beta_new</span>
+<span class="w">            </span><span class="n">fitted_values</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">pi_i</span><span class="p">(</span><span class="n">X</span><span class="w"> </span><span class="o">%*%</span><span class="w"> </span><span class="n">model_parameters</span><span class="p">)</span>
+<span class="w">            </span><span class="n">covariance_matrix</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">solve</span><span class="p">(</span><span class="n">iter_I</span><span class="p">)</span>
+<span class="w">            </span><span class="n">break</span>
+
+<span class="w">        </span><span class="p">}</span><span class="w"> </span><span class="n">else</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="n">iter_p</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">pi_i</span><span class="p">(</span><span class="n">X</span><span class="w"> </span><span class="o">%*%</span><span class="w"> </span><span class="n">beta_new</span><span class="p">)</span>
+<span class="w">            </span><span class="n">iter_W</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">diag</span><span class="p">(</span><span class="nf">as.vector</span><span class="p">(</span><span class="n">iter_p</span><span class="o">*</span><span class="p">(</span><span class="m">1</span><span class="o">-</span><span class="n">iter_p</span><span class="p">)))</span>
+<span class="w">            </span><span class="n">iter_I</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">t</span><span class="p">(</span><span class="n">X</span><span class="p">)</span><span class="w"> </span><span class="o">%*%</span><span class="w"> </span><span class="n">iter_W</span><span class="w"> </span><span class="o">%*%</span><span class="w"> </span><span class="n">X</span>
+<span class="w">            </span><span class="n">iter_U</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">t</span><span class="p">(</span><span class="n">X</span><span class="p">)</span><span class="w"> </span><span class="o">%*%</span><span class="w"> </span><span class="p">(</span><span class="n">y</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">iter_p</span><span class="p">)</span>
+<span class="w">            </span><span class="n">beta_old</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">beta_new</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">}</span>
+
+<span class="w">    </span><span class="n">results</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">list</span><span class="p">(</span>
+<span class="w">        </span><span class="s">&#39;model_parameters&#39;</span><span class="o">=</span><span class="n">model_parameters</span><span class="p">,</span><span class="w"> </span>
+<span class="w">        </span><span class="s">&#39;covariance_matrix&#39;</span><span class="o">=</span><span class="n">covariance_matrix</span><span class="p">,</span>
+<span class="w">        </span><span class="s">&#39;fitted_values&#39;</span><span class="o">=</span><span class="n">fitted_values</span><span class="p">,</span>
+<span class="w">        </span><span class="s">&#39;number_iterations&#39;</span><span class="o">=</span><span class="n">fisher_scoring_iterations</span>
+<span class="w">        </span><span class="p">)</span>
+
+<span class="w">    </span><span class="nf">return</span><span class="p">(</span><span class="n">results</span><span class="p">)</span>
+<span class="p">}</span>
+</code></pre></div>
+
+<p>A quick summary of R&#8217;s matrix&nbsp;operators:</p>
+<ul>
+<li><code>%*%</code> is a stand-in for matrix&nbsp;multiplication.  </li>
+<li><code>diag</code> returns a matrix with the provided vector as the diagonal and zero off-diagonal&nbsp;entries.</li>
+<li><code>t</code> returns the transpose of the provided&nbsp;matrix.</li>
+<li><code>solve</code> returns the inverse of the provided matrix (if it&nbsp;exists).    </li>
+</ul>
+<p>Note that in our implementation, we solve the normal equations directly.
+You wouldn&#8217;t see this in practice or when using optimized numerical software
+packages. This is because since when confronted with solving ill-conditioned 
+systems of equations, computing $(X^{T}<span class="caps">WX</span>)^{-1}$ effectively squares the condition 
+number, which results in an answer with essentially no accuracy. Optimized statistical 
+computing packages instead leverage more stable methods such as the <span class="caps">QR</span> decomposition or 
+<span class="caps">SVD</span>. A great post focusing on the internals of R&#8217;s linear model solvers can 
+be found <a href="http://madrury.github.io/jekyll/update/statistics/2016/07/20/lm-in-R.html">here</a>.</p>
+<p>We load the Challenger dataset and partition it into the design matrix and 
+response, which will then be passed into <code>getCoefficients</code>:</p>
+<div class="highlight"><pre><span></span><code><span class="n">df</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">read.table</span><span class="p">(</span>
+<span class="w">    </span><span class="n">file</span><span class="o">=</span><span class="s">&quot;Challenger.csv&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">header</span><span class="o">=</span><span class="kc">TRUE</span><span class="p">,</span><span class="w">  </span><span class="n">sep</span><span class="o">=</span><span class="s">&quot;,&quot;</span><span class="p">,</span><span class="w"> </span>
+<span class="w">    </span><span class="n">stringsAsFactors</span><span class="o">=</span><span class="kc">FALSE</span>
+<span class="w">    </span><span class="p">)</span>
+
+<span class="n">X</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">as.matrix</span><span class="p">(</span><span class="nf">cbind</span><span class="p">(</span><span class="m">1</span><span class="p">,</span><span class="w"> </span><span class="n">df</span><span class="p">[</span><span class="s">&#39;TEMPERATURE&#39;</span><span class="p">]))</span><span class="w">  </span><span class="c1"># design matrix</span>
+<span class="n">y</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">as.matrix</span><span class="p">(</span><span class="n">df</span><span class="p">[</span><span class="s">&#39;O_RING_FAILURE&#39;</span><span class="p">])</span><span class="w">         </span><span class="c1"># response vector</span>
+
+<span class="nf">colnames</span><span class="p">(</span><span class="n">X</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">NULL</span>
+<span class="nf">colnames</span><span class="p">(</span><span class="n">y</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">NULL</span>
+
+<span class="c1"># Call `getCoefficients`, keeping epsilon at .0001.</span>
+<span class="n">results</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">getCoefficients</span><span class="p">(</span><span class="n">X</span><span class="p">,</span><span class="w"> </span><span class="n">y</span><span class="p">,</span><span class="w"> </span><span class="n">epsilon</span><span class="o">=</span><span class="n">.</span><span class="m">0001</span><span class="p">)</span>
+</code></pre></div>
+
+<p>Printing <code>results</code> displays the model&#8217;s estimated coefficents (<em>model_parameters</em>), 
+the variance-covariance matrix of the coefficent estimates (<em>covariance_matrix</em>), 
+fitted values (<em>fitted_values</em>) and the number of Fisher Scoring iterations 
+(<em>number_iterations</em>):</p>
+<div class="highlight"><pre><span></span><code><span class="o">&gt;</span><span class="w"> </span><span class="nf">print</span><span class="p">(</span><span class="n">results</span><span class="p">)</span>
+
+<span class="o">$</span><span class="n">model_parameters</span>
+<span class="w">           </span><span class="p">[,</span><span class="m">1</span><span class="p">]</span>
+<span class="p">[</span><span class="m">1</span><span class="p">,]</span><span class="w"> </span><span class="m">15.0429016</span>
+<span class="p">[</span><span class="m">2</span><span class="p">,]</span><span class="w"> </span><span class="m">-0.2321627</span>
+
+<span class="o">$</span><span class="n">covariance_matrix</span>
+<span class="w">           </span><span class="p">[,</span><span class="m">1</span><span class="p">]</span><span class="w">        </span><span class="p">[,</span><span class="m">2</span><span class="p">]</span>
+<span class="p">[</span><span class="m">1</span><span class="p">,]</span><span class="w"> </span><span class="m">54.4442748</span><span class="w"> </span><span class="m">-0.79638682</span>
+<span class="p">[</span><span class="m">2</span><span class="p">,]</span><span class="w"> </span><span class="m">-0.7963868</span><span class="w">  </span><span class="m">0.01171514</span>
+
+<span class="o">$</span><span class="n">fitted_values</span>
+<span class="w">            </span><span class="p">[,</span><span class="m">1</span><span class="p">]</span>
+<span class="w"> </span><span class="p">[</span><span class="m">1</span><span class="p">,]</span><span class="w"> </span><span class="m">0.43049313</span>
+<span class="w"> </span><span class="p">[</span><span class="m">2</span><span class="p">,]</span><span class="w"> </span><span class="m">0.22996826</span>
+<span class="w"> </span><span class="p">[</span><span class="m">3</span><span class="p">,]</span><span class="w"> </span><span class="m">0.27362105</span>
+<span class="w"> </span><span class="p">[</span><span class="m">4</span><span class="p">,]</span><span class="w"> </span><span class="m">0.32209405</span>
+<span class="w"> </span><span class="p">[</span><span class="m">5</span><span class="p">,]</span><span class="w"> </span><span class="m">0.37472428</span>
+<span class="w"> </span><span class="p">[</span><span class="m">6</span><span class="p">,]</span><span class="w"> </span><span class="m">0.15804910</span>
+<span class="w"> </span><span class="p">[</span><span class="m">7</span><span class="p">,]</span><span class="w"> </span><span class="m">0.12954602</span>
+<span class="w"> </span><span class="p">[</span><span class="m">8</span><span class="p">,]</span><span class="w"> </span><span class="m">0.22996826</span>
+<span class="w"> </span><span class="p">[</span><span class="m">9</span><span class="p">,]</span><span class="w"> </span><span class="m">0.85931657</span>
+<span class="p">[</span><span class="m">10</span><span class="p">,]</span><span class="w"> </span><span class="m">0.60268105</span>
+<span class="p">[</span><span class="m">11</span><span class="p">,]</span><span class="w"> </span><span class="m">0.22996826</span>
+<span class="p">[</span><span class="m">12</span><span class="p">,]</span><span class="w"> </span><span class="m">0.04454055</span>
+<span class="p">[</span><span class="m">13</span><span class="p">,]</span><span class="w"> </span><span class="m">0.37472428</span>
+<span class="p">[</span><span class="m">14</span><span class="p">,]</span><span class="w"> </span><span class="m">0.93924781</span>
+<span class="p">[</span><span class="m">15</span><span class="p">,]</span><span class="w"> </span><span class="m">0.37472428</span>
+<span class="p">[</span><span class="m">16</span><span class="p">,]</span><span class="w"> </span><span class="m">0.08554356</span>
+<span class="p">[</span><span class="m">17</span><span class="p">,]</span><span class="w"> </span><span class="m">0.22996826</span>
+<span class="p">[</span><span class="m">18</span><span class="p">,]</span><span class="w"> </span><span class="m">0.02270329</span>
+<span class="p">[</span><span class="m">19</span><span class="p">,]</span><span class="w"> </span><span class="m">0.06904407</span>
+<span class="p">[</span><span class="m">20</span><span class="p">,]</span><span class="w"> </span><span class="m">0.03564141</span>
+<span class="p">[</span><span class="m">21</span><span class="p">,]</span><span class="w"> </span><span class="m">0.08554356</span>
+<span class="p">[</span><span class="m">22</span><span class="p">,]</span><span class="w"> </span><span class="m">0.06904407</span>
+<span class="p">[</span><span class="m">23</span><span class="p">,]</span><span class="w"> </span><span class="m">0.82884484</span>
+
+<span class="o">$</span><span class="n">number_iterations</span>
+<span class="p">[</span><span class="m">1</span><span class="p">]</span><span class="w"> </span><span class="m">6</span>
+</code></pre></div>
+
+<p>For the Challenger dataset, our implementation of Fisher Scoring yields a $\beta_{0}=15.0429016$ and $\beta{1}=-0.2321627$. 
+In order to predict new probabilities of O-ring failure based on temperature, our model relies on the following&nbsp;formula:</p>
+<p>$$
+\pi = \frac {e^{15.0429016 -0.2321627 * \mathrm{Temperature}}}{1 + e^{15.0429016 -0.2321627 * \mathrm{Temperature}}}&nbsp;$$</p>
+<p>Negative coefficents correspond to variables that are negatively correlated with the probability of a positive outcome, 
+the reverse being true for positive&nbsp;coefficents.  </p>
+<p>Lets compare the results of our implementation with the output of <code>glm</code> using 
+the same dataset, and specifying family=&#8221;binomial&#8221; and&nbsp;link=&#8221;logit&#8221;:</p>
+<div class="highlight"><pre><span></span><code><span class="n">df</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">read.table</span><span class="p">(</span>
+<span class="w">    </span><span class="n">file</span><span class="o">=</span><span class="s">&quot;Challenger.csv&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">header</span><span class="o">=</span><span class="kc">TRUE</span><span class="p">,</span><span class="w">  </span><span class="n">sep</span><span class="o">=</span><span class="s">&quot;,&quot;</span><span class="p">,</span><span class="w"> </span>
+<span class="w">    </span><span class="n">stringsAsFactors</span><span class="o">=</span><span class="kc">FALSE</span>
+<span class="w">    </span><span class="p">)</span>
+
+<span class="n">logistic.fit</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">glm</span><span class="p">(</span>
+<span class="w">    </span><span class="n">formula</span><span class="o">=</span><span class="n">O_RING_FAILURE</span><span class="w"> </span><span class="o">~</span><span class="w"> </span><span class="n">TEMPERATURE</span><span class="p">,</span>
+<span class="w">    </span><span class="n">family</span><span class="o">=</span><span class="nf">binomial</span><span class="p">(</span><span class="n">link</span><span class="o">=</span><span class="n">logit</span><span class="p">),</span><span class="w"> </span><span class="n">data</span><span class="o">=</span><span class="n">df</span>
+<span class="w">    </span><span class="p">)</span>
+</code></pre></div>
+
+<p>From <code>logistic.fit</code>, we&#8217;ll extract <code>coefficients</code>, <code>fitted.values</code> and <code>iter</code>,
+and call <code>vcov(logistic.fit)</code> to obtain the variance-covariance matrix of the 
+estimated&nbsp;coefficents:</p>
+<div class="highlight"><pre><span></span><code><span class="o">&gt;</span><span class="w"> </span><span class="n">logistic.fit</span><span class="o">$</span><span class="nf">coefficients</span>
+<span class="p">(</span><span class="n">Intercept</span><span class="p">)</span><span class="w"> </span><span class="n">TEMPERATURE</span><span class="w"> </span>
+<span class="w"> </span><span class="m">15.0429016</span><span class="w">  </span><span class="m">-0.2321627</span><span class="w"> </span>
+
+<span class="o">&gt;</span><span class="w"> </span><span class="nf">matrix</span><span class="p">(</span><span class="n">logistic.fit</span><span class="o">$</span><span class="n">fitted.values</span><span class="p">)</span>
+<span class="w">      </span><span class="p">[,</span><span class="m">1</span><span class="p">]</span>
+<span class="w"> </span><span class="p">[</span><span class="m">1</span><span class="p">,]</span><span class="w"> </span><span class="m">0.43049313</span>
+<span class="w"> </span><span class="p">[</span><span class="m">2</span><span class="p">,]</span><span class="w"> </span><span class="m">0.22996826</span>
+<span class="w"> </span><span class="p">[</span><span class="m">3</span><span class="p">,]</span><span class="w"> </span><span class="m">0.27362105</span>
+<span class="w"> </span><span class="p">[</span><span class="m">4</span><span class="p">,]</span><span class="w"> </span><span class="m">0.32209405</span>
+<span class="w"> </span><span class="p">[</span><span class="m">5</span><span class="p">,]</span><span class="w"> </span><span class="m">0.37472428</span>
+<span class="w"> </span><span class="p">[</span><span class="m">6</span><span class="p">,]</span><span class="w"> </span><span class="m">0.15804910</span>
+<span class="w"> </span><span class="p">[</span><span class="m">7</span><span class="p">,]</span><span class="w"> </span><span class="m">0.12954602</span>
+<span class="w"> </span><span class="p">[</span><span class="m">8</span><span class="p">,]</span><span class="w"> </span><span class="m">0.22996826</span>
+<span class="w"> </span><span class="p">[</span><span class="m">9</span><span class="p">,]</span><span class="w"> </span><span class="m">0.85931657</span>
+<span class="p">[</span><span class="m">10</span><span class="p">,]</span><span class="w"> </span><span class="m">0.60268105</span>
+<span class="p">[</span><span class="m">11</span><span class="p">,]</span><span class="w"> </span><span class="m">0.22996826</span>
+<span class="p">[</span><span class="m">12</span><span class="p">,]</span><span class="w"> </span><span class="m">0.04454055</span>
+<span class="p">[</span><span class="m">13</span><span class="p">,]</span><span class="w"> </span><span class="m">0.37472428</span>
+<span class="p">[</span><span class="m">14</span><span class="p">,]</span><span class="w"> </span><span class="m">0.93924781</span>
+<span class="p">[</span><span class="m">15</span><span class="p">,]</span><span class="w"> </span><span class="m">0.37472428</span>
+<span class="p">[</span><span class="m">16</span><span class="p">,]</span><span class="w"> </span><span class="m">0.08554356</span>
+<span class="p">[</span><span class="m">17</span><span class="p">,]</span><span class="w"> </span><span class="m">0.22996826</span>
+<span class="p">[</span><span class="m">18</span><span class="p">,]</span><span class="w"> </span><span class="m">0.02270329</span>
+<span class="p">[</span><span class="m">19</span><span class="p">,]</span><span class="w"> </span><span class="m">0.06904407</span>
+<span class="p">[</span><span class="m">20</span><span class="p">,]</span><span class="w"> </span><span class="m">0.03564141</span>
+<span class="p">[</span><span class="m">21</span><span class="p">,]</span><span class="w"> </span><span class="m">0.08554356</span>
+<span class="p">[</span><span class="m">22</span><span class="p">,]</span><span class="w"> </span><span class="m">0.06904407</span>
+<span class="p">[</span><span class="m">23</span><span class="p">,]</span><span class="w"> </span><span class="m">0.82884484</span>
+
+<span class="o">&gt;</span><span class="w"> </span><span class="n">logistic.fit</span><span class="o">$</span><span class="n">fitted.iter</span>
+<span class="m">5</span>
+
+<span class="o">&gt;</span><span class="w"> </span><span class="nf">vcov</span><span class="p">(</span><span class="n">logistic.fit</span><span class="p">)</span>
+<span class="w">             </span><span class="p">(</span><span class="n">Intercept</span><span class="p">)</span><span class="w"> </span><span class="nf">TEMPERATURE</span>
+<span class="p">(</span><span class="n">Intercept</span><span class="p">)</span><span class="w">  </span><span class="m">54.4441826</span><span class="w"> </span><span class="m">-0.79638547</span>
+<span class="n">TEMPERATURE</span><span class="w">  </span><span class="m">-0.7963855</span><span class="w">  </span><span class="m">0.01171512</span>
+</code></pre></div>
+
+<p>Our coefficients match exactly with those generated by glm, and as would be 
+expected, the fitted values are also&nbsp;identical.</p>
+<p>Notice there&#8217;s some discrepancy in the estimate of the variance-covariance 
+matrix beginning with the 4th decimal (54.4442748 in our algorithm vrs. 
+54.4441826 for the variance of the Intercept term from glm). This may be due to 
+rounding, or the loss of precision in floating point values when inverting 
+matricies. Notice our implementation required one more Fisher Scoring iteration 
+than glm (6 vrs. 5). Perhaps increasing the size of our epsilon will reduce the 
+number of Fisher Scoring iterations, which in turn may lead to better agreement 
+between the variance-covariance&nbsp;matricies.    </p>
+<p>Calling <code>summary(logistic.fit)</code> prints, among other things, the standard error 
+of the coefficent&nbsp;estimates:</p>
+<div class="highlight"><pre><span></span><code><span class="o">&gt;</span><span class="w"> </span><span class="nf">summary</span><span class="p">(</span><span class="n">logistic.fit</span><span class="p">)</span>
+<span class="n">Coefficients</span><span class="o">:</span>
+<span class="w">            </span><span class="n">Estimate</span><span class="w"> </span><span class="n">Std.</span><span class="w"> </span><span class="n">Error</span><span class="w"> </span><span class="n">z</span><span class="w"> </span><span class="n">value</span><span class="w"> </span><span class="nf">Pr</span><span class="p">(</span><span class="o">&gt;|</span><span class="n">z</span><span class="o">|</span><span class="p">)</span><span class="w">  </span>
+<span class="p">(</span><span class="n">Intercept</span><span class="p">)</span><span class="w">  </span><span class="m">15.0429</span><span class="w">     </span><span class="m">7.3786</span><span class="w">   </span><span class="m">2.039</span><span class="w">   </span><span class="m">0.0415</span><span class="w"> </span><span class="o">*</span>
+<span class="n">TEMPERATURE</span><span class="w">  </span><span class="m">-0.2322</span><span class="w">     </span><span class="m">0.1082</span><span class="w">  </span><span class="m">-2.145</span><span class="w">   </span><span class="m">0.0320</span><span class="w"> </span><span class="o">*</span>
+</code></pre></div>
+
+<p>The <em>Std. Error</em> values are the square root of the diagonal elements of the 
+variance-covariance matrix, $\sqrt{54.4441826} = 7.3786$ and
+$\sqrt{0.01171512} =&nbsp;0.1082$. </p>
+<p><em>z value</em> is the estimated coefficent divided by <em>Std. Error</em>. In our 
+example, $15.0429/7.3786=2.039$ and $-0.2322/0.1082 = -2.145$.
+<em>Pr(&gt;|z|)</em> is the p-value, which tells us whether we should trust the estimated 
+coefficent value. The standard rule of thumb is that coefficents with p-values 
+less than 0.05 are reliable, although some tests require stricter&nbsp;thresholds.</p>
+<p>A feature of Logistic Regression is that the training data&#8217;s marginal 
+probabilities are preserved. If you aggregate fitted values from the 
+training set, that quanity will equal the number of positive outcomes in the 
+response vector (this is true for all exponential family GLMs employing a 
+canonical link&nbsp;function):</p>
+<div class="highlight"><pre><span></span><code><span class="o">&gt;</span><span class="w"> </span><span class="nf">sum</span><span class="p">(</span><span class="n">y</span><span class="p">)</span>
+<span class="m">7</span>
+
+<span class="c1"># Checking sum for our algorithm.</span>
+<span class="o">&gt;</span><span class="w"> </span><span class="nf">sum</span><span class="p">(</span><span class="n">mySummary</span><span class="o">$</span><span class="n">fitted_values</span><span class="p">)</span>
+<span class="m">7</span>
+
+<span class="c1">#checking sum for glm.</span>
+<span class="o">&gt;</span><span class="w"> </span><span class="nf">sum</span><span class="p">(</span><span class="n">logistic.fit</span><span class="o">$</span><span class="n">fitted.values</span><span class="p">)</span>
+<span class="m">7</span>
+</code></pre></div>
+
+<h2>Using The Model to Calculate&nbsp;Probabilities</h2>
+<p>To apply the model generated by glm to a new set of explanatory 
+variables, use the <code>predict</code> function. Pass a list or data.frame of explanatory 
+variables to <code>predict</code>, and for logistic regression models, be sure to set 
+<code>type="response"</code> to ensure probabilities are returned. For&nbsp;example:</p>
+<div class="highlight"><pre><span></span><code><span class="c1"># New inputs for Logistic Regression model.</span>
+<span class="o">&gt;</span><span class="w"> </span><span class="n">tempsDF</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="nf">data.frame</span><span class="p">(</span><span class="n">TEMPERATURE</span><span class="o">=</span><span class="nf">c</span><span class="p">(</span><span class="m">24</span><span class="p">,</span><span class="w"> </span><span class="m">41</span><span class="p">,</span><span class="w"> </span><span class="m">46</span><span class="p">,</span><span class="w"> </span><span class="m">47</span><span class="p">,</span><span class="w"> </span><span class="m">61</span><span class="p">))</span>
+
+<span class="o">&gt;</span><span class="w"> </span><span class="nf">predict</span><span class="p">(</span><span class="n">logistic.fit</span><span class="p">,</span><span class="w"> </span><span class="n">tempsDF</span><span class="p">,</span><span class="w"> </span><span class="n">type</span><span class="o">=</span><span class="s">&quot;response&quot;</span><span class="p">)</span>
+
+<span class="w">        </span><span class="m">1</span><span class="w">         </span><span class="m">2</span><span class="w">         </span><span class="m">3</span><span class="w">         </span><span class="m">4</span><span class="w">         </span><span class="m">5</span><span class="w"> </span>
+<span class="m">0.9999230</span><span class="w"> </span><span class="m">0.9960269</span><span class="w"> </span><span class="m">0.9874253</span><span class="w"> </span><span class="m">0.9841912</span><span class="w"> </span><span class="m">0.7070241</span>
+</code></pre></div>
+            </div>
+            <!-- /.entry-content -->
+        </article>
+    </section>
+
+        </div>
+        <div class="col-sm-3" id="sidebar">
+            <aside>
+<div id="aboutme">
+        <p>
+            <img width="100%" class="img-thumbnail" src="./images/JDTGOOG.JPG"/>
+        </p>
+    <p>
+      <strong>About James D. Triveri</strong><br/>
+        Data Scientist interested in ML/DL, automation and scientific computing.
+    </p>
+</div><!-- Sidebar -->
+<section class="well well-sm">
+  <ul class="list-group list-group-flush">
+
+<!-- Sidebar/Links -->
+<li class="list-group-item">
+  <h4><i class="fa fa-external-link-square fa-lg"></i><span class="icon-label">Links</span></h4>
+  <ul class="list-group" id="links">
+    <li class="list-group-item">
+      <a href="http://python.org/" target="_blank">Python.org</a>
+    </li>
+    <li class="list-group-item">
+      <a href="https://docs.python.org/3/py-modindex.html" target="_blank">The Python Module Index</a>
+    </li>
+    <li class="list-group-item">
+      <a href="https://scikit-learn.org/stable/documentation.html" target="_blank">Scikit-Learn</a>
+    </li>
+    <li class="list-group-item">
+      <a href="https://www.scipy.org/docs.html" target="_blank">Scipy Docs</a>
+    </li>
+    <li class="list-group-item">
+      <a href="https://openai.com/" target="_blank">OpenAI</a>
+    </li>
+  </ul>
+</li>
+<!-- End Sidebar/Links -->
+
+<!-- Sidebar/Images -->
+<li class="list-group-item">
+  <ul class="list-group" id="links">
+    <img width="100%" class="img-thumbnail" src="images/Sidebar/sidebarA.jpg"/>
+    <img width="100%" class="img-thumbnail" src="images/Sidebar/sidebarB.png"/>
+    <img width="100%" class="img-thumbnail" src="images/Sidebar/sidebarC.jpg"/>
+    <img width="100%" class="img-thumbnail" src="images/Sidebar/sidebarD.jpg"/>
+  </ul>
+</li>
+<!-- End Sidebar/Images -->
+  </ul>
+</section>
+<!-- End Sidebar -->            </aside>
+        </div>
+    </div>
+</div>
+<!-- End Content Container -->
+
+<footer>
+   <div class="container-fluid">
+      <hr>
+      <div class="row">
+         <div class="col-xs-10">&copy; 2023 James D. Triveri
+            &middot; Powered by <a href="https://github.com/getpelican/pelican-themes/tree/master/pelican-bootstrap3" target="_blank">pelican-bootstrap3</a>,
+            <a href="http://docs.getpelican.com/" target="_blank">Pelican</a>,
+            <a href="http://getbootstrap.com" target="_blank">Bootstrap</a>         </div>
+         <div class="col-xs-2"><p class="pull-right"><i class="fa fa-arrow-up"></i> <a href="#">Back to top</a></p></div>
+      </div>
+   </div>
+</footer>
+<script src="./theme/js/jquery.min.js"></script>
+
+<!-- Include all compiled plugins (below), or include individual files as needed -->
+<script src="./theme/js/bootstrap.min.js"></script>
+
+<!-- Enable responsive features in IE8 with Respond.js (https://github.com/scottjehl/Respond) -->
+<script src="./theme/js/respond.min.js"></script>
+
+
+    <script src="./theme/js/bodypadding.js"></script>
+
+
+</body>
+</html>
