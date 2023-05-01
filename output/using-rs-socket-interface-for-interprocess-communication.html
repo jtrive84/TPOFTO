@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en" prefix="og: http://ogp.me/ns# fb: https://www.facebook.com/2008/fbml">
+<head>
+    <title>Using R’s Socket Interface for Interprocess Communication - The Pleasure of Finding Things Out</title>
+    <!-- Using the latest rendering mode for IE -->
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+
+
+<link rel="canonical" href="./using-rs-socket-interface-for-interprocess-communication.html">
+
+        <meta name="author" content="James D. Triveri" />
+        <meta name="keywords" content="R" />
+        <meta name="description" content="Using R’s Socket Interface for Interprocess Communication" />
+
+        <meta property="og:site_name" content="The Pleasure of Finding Things Out" />
+        <meta property="og:type" content="article"/>
+        <meta property="og:title" content="Using R’s Socket Interface for Interprocess Communication"/>
+        <meta property="og:url" content="./using-rs-socket-interface-for-interprocess-communication.html"/>
+        <meta property="og:description" content="Using R’s Socket Interface for Interprocess Communication"/>
+        <meta property="article:published_time" content="2023-04-23" />
+            <meta property="article:section" content="R" />
+            <meta property="article:tag" content="R" />
+            <meta property="article:author" content="James D. Triveri" />
+
+
+
+    <!-- Bootstrap -->
+        <link rel="stylesheet" href="./theme/css/bootstrap.Yeti.min.css" type="text/css"/>
+    <link href="./theme/css/font-awesome.min.css" rel="stylesheet">
+
+    <link href="./theme/css/pygments/default.css" rel="stylesheet">
+        <link href="./theme/css/typogrify.css" rel="stylesheet">
+    <link rel="stylesheet" href="./theme/css/style.css" type="text/css"/>
+        <link href="./static/css/custom.css" rel="stylesheet">
+
+
+
+
+</head>
+<body>
+
+<div class="navbar navbar-inverse navbar-fixed-top" role="navigation">
+    <div class="container-fluid">
+        <div class="navbar-header">
+            <button type="button" class="navbar-toggle" data-toggle="collapse" data-target=".navbar-ex1-collapse">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            <a href="./" class="navbar-brand">
+The Pleasure of Finding Things Out            </a>
+        </div>
+        <div class="collapse navbar-collapse navbar-ex1-collapse">
+            <ul class="nav navbar-nav">
+                         <li><a href="./pages/about-me.html">
+                             About&nbsp;Me
+                          </a></li>
+                        <li >
+                            <a href="./category/machine-learning.html">Machine learning</a>
+                        </li>
+                        <li >
+                            <a href="./category/python.html">Python</a>
+                        </li>
+                        <li class="active">
+                            <a href="./category/r.html">R</a>
+                        </li>
+                        <li >
+                            <a href="./category/statistical-modeling.html">Statistical modeling</a>
+                        </li>
+            </ul>
+            <ul class="nav navbar-nav navbar-right">
+            </ul>
+        </div>
+        <!-- /.navbar-collapse -->
+    </div>
+</div> <!-- /.navbar -->
+
+<!-- Banner -->
+<!-- End Banner -->
+
+<!-- Content Container -->
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-sm-9">
+    <section id="content">
+        <article>
+            <header class="page-header">
+                <h1>
+                    <a href="./using-rs-socket-interface-for-interprocess-communication.html"
+                       rel="bookmark"
+                       title="Permalink to Using R’s Socket Interface for Interprocess Communication">
+                        Using R&#8217;s Socket Interface for Interprocess&nbsp;Communication
+                    </a>
+                </h1>
+            </header>
+            <div class="entry-content">
+                <div class="panel">
+                    <div class="panel-body">
+<footer class="post-info">
+    <span class="label label-default">Date</span>
+    <span class="published">
+        <i class="fa fa-calendar"></i><time datetime="2023-04-23T00:00:00-05:00"> 2023-04-23</time>
+    </span>
+
+
+
+
+
+<span class="label label-default">Tags</span>
+	<a href="./tag/r.html">R</a>
+    
+</footer><!-- /.post-info -->                    </div>
+                </div>
+                <p>Often it is necessary to communicate runtime execution details from one process to another process or monitoring utility. The 
+information can be used for logging, debugging, tracing or simply to relay the status or progress of a running program. In this post, 
+I&#8217;ll demonstrate how to perform interprocess communication between two separate R processes using functions available in base&nbsp;R. </p>
+<p>In order to setup a communication channel between separately running R instances, it is first necessary to initialize the socket 
+server. A very simple example of a socket server that echoes the client&#8217;s messages is provided below. I&#8217;ll save it in a file named 
+<em>server.R</em>:</p>
+<div class="highlight"><pre><span></span><code><span class="c1"># server.R: Example of a socket server in listening mode.</span>
+<span class="n">serverSocket</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">make.socket</span><span class="p">(</span><span class="n">host</span><span class="o">=</span><span class="s">&quot;localhost&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">port</span><span class="o">=</span><span class="m">6000</span><span class="p">,</span><span class="w"> </span><span class="n">server</span><span class="o">=</span><span class="kc">TRUE</span><span class="p">)</span>
+
+<span class="nf">while</span><span class="p">(</span><span class="kc">TRUE</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="n">statusMsg</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">read.socket</span><span class="p">(</span><span class="n">serverSocket</span><span class="p">)</span>
+<span class="w">    </span><span class="nf">print</span><span class="p">(</span><span class="n">statusMsg</span><span class="p">)</span>
+<span class="w">    </span><span class="nf">if </span><span class="p">(</span><span class="nf">nchar</span><span class="p">(</span><span class="n">statusMsg</span><span class="p">)</span><span class="o">==</span><span class="m">0</span><span class="p">)</span><span class="w"> </span><span class="n">break</span>
+<span class="p">}</span><span class="w"> </span>
+
+<span class="nf">close.socket</span><span class="p">(</span><span class="n">serverSocket</span><span class="p">)</span>
+</code></pre></div>
+
+<p>We first call <code>make.socket</code> with <code>server=TRUE</code>, and <code>port=6000</code>. The port number can be any integer between 0-65535 (port numbers are 
+unsigned 16-bit integers), but should always be set to something greater than 1024, since ports 0-1024 are reserved for privileged 
+services. Next a looping construct is setup and the socket is read from until a message is received having character length 0. Once 
+the zero-length character message is received, iteration ceases and <code>serverSocket</code> is closed by calling <code>close.socket</code>.</p>
+<p>Next we implement the client socket and the logic to facilitate message passing between two R processes. In this example, a random 
+poisson number is generated, the client sleeps for 1 second, then writes the current time along with the randomly generated Poisson 
+number to the server listening on port 6000. We save the code that follows in a file named <em>client.R</em>:</p>
+<div class="highlight"><pre><span></span><code><span class="c1"># client.R: Example of socket client and message generating logic.</span>
+<span class="n">clientSocket</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">make.socket</span><span class="p">(</span><span class="n">host</span><span class="o">=</span><span class="s">&quot;localhost&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">port</span><span class="o">=</span><span class="m">6000</span><span class="p">,</span><span class="w"> </span><span class="n">server</span><span class="o">=</span><span class="kc">FALSE</span><span class="p">)</span>
+
+<span class="nf">for </span><span class="p">(</span><span class="n">ii</span><span class="w"> </span><span class="n">in</span><span class="w"> </span><span class="m">1</span><span class="o">:</span><span class="m">10</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="n">rp</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">rpois</span><span class="p">(</span><span class="m">1</span><span class="p">,</span><span class="m">10</span><span class="p">)</span>
+<span class="w">    </span><span class="nf">Sys.sleep</span><span class="p">(</span><span class="m">1</span><span class="p">)</span>
+<span class="w">    </span><span class="n">msg</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">paste0</span><span class="p">(</span><span class="s">&quot;[&quot;</span><span class="p">,</span><span class="nf">Sys.time</span><span class="p">(),</span><span class="w"> </span><span class="s">&quot;] - Random Poisson: &quot;</span><span class="p">,</span><span class="w"> </span><span class="n">rp</span><span class="p">)</span>
+<span class="w">    </span><span class="nf">write.socket</span><span class="p">(</span><span class="n">clientSocket</span><span class="p">,</span><span class="w"> </span><span class="n">msg</span><span class="p">)</span>
+<span class="p">}</span>
+
+<span class="nf">close.socket</span><span class="p">(</span><span class="n">clientSocket</span><span class="p">)</span>
+</code></pre></div>
+
+<p>The call to <code>make.socket</code> is similar to that in <em>server.R</em>, except in <em>client.R</em>, <code>server=FALSE</code> (note that <code>server=FALSE</code> is the 
+default for <code>make.socket</code>, but listing it explicitly helps to clearly indicate the purpose of each socket). 
+All that remains is to kick them off. As mentioned earlier, it&#8217;s imperative to first run <em>server.R</em>. The socket server will enter 
+listening mode, waiting on messages from <em>client.R</em>. If you attempt to run client.R without server.R already running, an exception 
+will be generated, along the lines&nbsp;of:</p>
+<div class="highlight"><pre><span></span><code><span class="n">Error</span><span class="w"> </span><span class="n">in</span><span class="w"> </span><span class="nf">make.socket</span><span class="p">(</span><span class="n">host</span><span class="o">=</span><span class="s">&quot;localhost&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">port</span><span class="o">=</span><span class="m">6000</span><span class="p">,</span><span class="w"> </span><span class="n">server</span><span class="o">=</span><span class="kc">FALSE</span><span class="p">)</span><span class="w"> </span><span class="o">:</span><span class="w"> </span>
+
+<span class="w">  </span><span class="n">socket</span><span class="w"> </span><span class="n">not</span><span class="w"> </span><span class="n">established</span>
+</code></pre></div>
+
+<p>From RStudio, a separate R process can be established by selecting <em>Session &gt; New Session</em>. First kickoff <em>server.R</em>. Once running, 
+start <em>client.R</em>. The image below shows <em>client.R</em> on the left and <em>server.R</em> on the&nbsp;right:</p>
+<p><img alt="socket1" src="https://drive.google.com/uc?export=view&amp;id=1Vj5S8CnSmgCYcbbVDGzTRCp5kYqwlk4A"></p>
+<p>The output written to the <em>server.R</em> console confirms that our socket setup successfully communicated information between separate 
+invocations of&nbsp;R. </p>
+            </div>
+            <!-- /.entry-content -->
+        </article>
+    </section>
+
+        </div>
+        <div class="col-sm-3" id="sidebar">
+            <aside>
+<div id="aboutme">
+        <p>
+            <img width="100%" class="img-thumbnail" src="./images/JDTGOOG.JPG"/>
+        </p>
+    <p>
+      <strong>About James D. Triveri</strong><br/>
+        Data Scientist interested in ML/DL, automation and scientific computing.
+    </p>
+</div><!-- Sidebar -->
+<section class="well well-sm">
+  <ul class="list-group list-group-flush">
+
+<!-- Sidebar/Links -->
+<li class="list-group-item">
+  <h4><i class="fa fa-external-link-square fa-lg"></i><span class="icon-label">Links</span></h4>
+  <ul class="list-group" id="links">
+    <li class="list-group-item">
+      <a href="http://python.org/" target="_blank">Python.org</a>
+    </li>
+    <li class="list-group-item">
+      <a href="https://docs.python.org/3/py-modindex.html" target="_blank">The Python Module Index</a>
+    </li>
+    <li class="list-group-item">
+      <a href="https://scikit-learn.org/stable/documentation.html" target="_blank">Scikit-Learn</a>
+    </li>
+    <li class="list-group-item">
+      <a href="https://www.scipy.org/docs.html" target="_blank">Scipy Docs</a>
+    </li>
+    <li class="list-group-item">
+      <a href="https://openai.com/" target="_blank">OpenAI</a>
+    </li>
+  </ul>
+</li>
+<!-- End Sidebar/Links -->
+
+<!-- Sidebar/Images -->
+<li class="list-group-item">
+  <ul class="list-group" id="links">
+    <img width="100%" class="img-thumbnail" src="images/Sidebar/sidebarA.jpg"/>
+    <img width="100%" class="img-thumbnail" src="images/Sidebar/sidebarB.png"/>
+    <img width="100%" class="img-thumbnail" src="images/Sidebar/sidebarC.jpg"/>
+    <img width="100%" class="img-thumbnail" src="images/Sidebar/sidebarD.jpg"/>
+  </ul>
+</li>
+<!-- End Sidebar/Images -->
+  </ul>
+</section>
+<!-- End Sidebar -->            </aside>
+        </div>
+    </div>
+</div>
+<!-- End Content Container -->
+
+<footer>
+   <div class="container-fluid">
+      <hr>
+      <div class="row">
+         <div class="col-xs-10">&copy; 2023 James D. Triveri
+            &middot; Powered by <a href="https://github.com/getpelican/pelican-themes/tree/master/pelican-bootstrap3" target="_blank">pelican-bootstrap3</a>,
+            <a href="http://docs.getpelican.com/" target="_blank">Pelican</a>,
+            <a href="http://getbootstrap.com" target="_blank">Bootstrap</a>         </div>
+         <div class="col-xs-2"><p class="pull-right"><i class="fa fa-arrow-up"></i> <a href="#">Back to top</a></p></div>
+      </div>
+   </div>
+</footer>
+<script src="./theme/js/jquery.min.js"></script>
+
+<!-- Include all compiled plugins (below), or include individual files as needed -->
+<script src="./theme/js/bootstrap.min.js"></script>
+
+<!-- Enable responsive features in IE8 with Respond.js (https://github.com/scottjehl/Respond) -->
+<script src="./theme/js/respond.min.js"></script>
+
+
+    <script src="./theme/js/bodypadding.js"></script>
+
+
+</body>
+</html>
